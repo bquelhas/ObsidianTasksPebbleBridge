@@ -1,0 +1,68 @@
+{
+  "name": "obsidian-tasks",
+  "author": "bquelhas",
+  "version": "0.4.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {
+    "pebble-clay": "^1.0.4"
+  },
+  "pebble": {
+    "displayName": "ObsidianTasks",
+    "uuid": "177c4f8f-df6c-4721-a8eb-a7b7e9b4b60e",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "capabilities": [
+      "configurable"
+    ],
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "chalk",
+      "diorite",
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false,
+      "menuIcon": "IMAGE_MENU_ICON"
+    },
+    "messageKeys": {
+      "DUMMY": 0,
+      "KEY_ACTION": 90,
+      "KEY_INDEX": 91,
+      "KEY_TASK_TEXT": 93,
+      "BG_COLOR": 1000,
+      "VOICE_ON": 1001,
+      "TL_TOKEN": 1002
+    },
+    "versionLabel": "0.4",
+    "resources": {
+      "media": [
+        {
+          "type": "png",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/icon.png",
+          "menuIcon": true
+        },
+        {
+          "type": "png",
+          "name": "ACTION_DISMISS",
+          "file": "images/action_dismiss.png"
+        },
+        {
+          "type": "png",
+          "name": "ACTION_CHECK",
+          "file": "images/action_check.png"
+        },
+        {
+          "type": "png-trans",
+          "name": "OBSIDIAN_TIMELINE_ICON",
+          "file": "images/timeline_icon.png",
+          "timelineIcon": true
+        }
+      ]
+    }
+  }
+}

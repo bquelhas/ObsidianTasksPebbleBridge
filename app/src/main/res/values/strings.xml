@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pebble Obsidian</string>
+    <string name="app_subtitle">Pebble Bridge</string>
+
+    <string name="section_log">Activity log</string>
+    <string name="log_initial">Waiting for activity…</string>
+
+    <string name="section_vault">Obsidian Vault</string>
+    <string name="btn_choose_folder">Choose folder</string>
+    <string name="vault_none">No folder selected</string>
+
+    <string name="section_rules">Group rules</string>
+    <string name="hint_rules">Rules (Tag, Priority, Name)</string>
+    <string name="helper_rules">One rule per line — tag must appear in the task text.\nExample:\n  #USP, 60, União\n  #SIN, 90, Sintarq\n  #DEN, 70, Denúncias</string>
+    <string name="helper_tags">Each row maps a tag to a group title. Drag to reorder — top rows show first on the watch.</string>
+    <string name="tags_empty">No tags yet — pick your vault folder, then tap “Re-scan tags”.</string>
+    <string name="tag_hint_tag">#TAG</string>
+    <string name="tag_hint_title">Group title</string>
+    <string name="tag_drag">Drag to reorder</string>
+    <string name="tag_delete">Delete row</string>
+    <string name="btn_add_tag">Add tag</string>
+    <string name="btn_rescan_tags">Re-scan tags</string>
+    <string name="tags_scanning">Scanning vault for tags…</string>
+    <string name="tags_scan_result">Found %1$d tag(s) in the vault.</string>
+    <string name="tags_scan_none">No tags found in the vault.</string>
+
+    <string name="section_reminders">Scheduled reminders</string>
+    <string name="reminders_empty">No reminders scheduled.</string>
+    <string name="reminder_today">Today at %s</string>
+    <string name="reminder_tomorrow">Tomorrow at %s</string>
+
+    <string name="section_settings">Sync settings</string>
+    <string name="hint_sync_interval">Auto-sync interval</string>
+    <string name="hint_max_tasks">Max tasks to send (5–30)</string>
+    <string name="hint_note_file">Voice note file</string>
+    <string name="helper_note_file">Dictated notes are appended here (created on first note).</string>
+    <string name="btn_save_vault">Save</string>
+    <string name="vault_saved">Settings saved ✓</string>
+    <string name="sync_15min">Every 15 minutes</string>
+    <string name="sync_30min">Every 30 minutes</string>
+    <string name="sync_1h">Every hour</string>
+    <string name="sync_2h">Every 2 hours</string>
+    <string name="label_daily_refresh">Daily refresh (battery ≥ 75%% + charging)</string>
+    <string name="hint_daily_hour">Hour (0–23)</string>
+    <string name="section_preview">Tasks preview</string>
+    <string name="preview_empty">No tasks yet — tap "Send tasks to Pebble" to refresh.</string>
+    <string name="btn_sync">Send tasks to Pebble</string>
+    <string name="log_sending">Sending tasks to Pebble…</string>
+    <string name="log_vault_saved">Settings saved. Vault: %1$s</string>
+    <string name="log_vault_not_set">Vault not configured — open the app and choose a folder.</string>
+    <string name="action_copy_log">Copy log</string>
+    <string name="log_copied">Log copied to clipboard</string>
+    <string name="action_clear_log">Clear log</string>
+    <string name="log_cleared">Log cleared</string>
+
+    <string name="sync_status">%1$d tasks · %2$s</string>
+    <string name="sync_status_never">Not synced yet</string>
+
+    <string name="tab_config">Setup</string>
+    <string name="tab_sync">Sync</string>
+
+    <string name="btn_install_watch_store">Rebble store</string>
+    <string name="btn_install_watch">Install (local)</string>
+    <string name="install_no_handler">Core / Pebble app not found to install the watch app.</string>
+    <string name="install_launched">Opening Pebble app to install the watch app…</string>
+    <string name="install_error">Could not prepare watch app: %1$s</string>
+
+    <string name="svc_channel_name">Pebble bridge</string>
+    <string name="svc_notification_title">Obsidian Pebble Bridge</string>
+    <string name="svc_notification_text">Listening for watch actions</string>
+</resources>

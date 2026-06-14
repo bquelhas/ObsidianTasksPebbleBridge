@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pebble Obsidian</string>
+    <string name="app_subtitle">Pebble Bridge</string>
+
+    <string name="section_log">Registo de actividade</string>
+    <string name="log_initial">À espera de actividade…</string>
+
+    <string name="section_vault">Vault Obsidian</string>
+    <string name="btn_choose_folder">Escolher pasta</string>
+    <string name="vault_none">Nenhuma pasta seleccionada</string>
+
+    <string name="section_rules">Regras de grupos</string>
+    <string name="hint_rules">Regras (Tag, Prioridade, Nome)</string>
+    <string name="helper_rules">Uma regra por linha — a tag tem de aparecer no texto da tarefa.\nExemplo:\n  #USP, 60, União\n  #SIN, 90, Sintarq\n  #DEN, 70, Denúncias</string>
+    <string name="helper_tags">Cada linha liga uma tag a um título de grupo. Arrasta para reordenar — as linhas de cima aparecem primeiro no relógio.</string>
+    <string name="tags_empty">Sem tags — escolhe a pasta do vault e toca em “Reanalisar tags”.</string>
+    <string name="tag_hint_tag">#TAG</string>
+    <string name="tag_hint_title">Título do grupo</string>
+    <string name="tag_drag">Arrastar para reordenar</string>
+    <string name="tag_delete">Apagar linha</string>
+    <string name="btn_add_tag">Adicionar tag</string>
+    <string name="btn_rescan_tags">Reanalisar tags</string>
+    <string name="tags_scanning">A procurar tags no vault…</string>
+    <string name="tags_scan_result">Encontradas %1$d tag(s) no vault.</string>
+    <string name="tags_scan_none">Nenhuma tag encontrada no vault.</string>
+
+    <string name="section_reminders">Lembretes agendados</string>
+    <string name="reminders_empty">Sem lembretes agendados.</string>
+    <string name="reminder_today">Hoje às %s</string>
+    <string name="reminder_tomorrow">Amanhã às %s</string>
+
+    <string name="section_settings">Configurações de sincronização</string>
+    <string name="hint_sync_interval">Intervalo de sincronização automática</string>
+    <string name="hint_max_tasks">Máx. tarefas a enviar (5–30)</string>
+    <string name="hint_note_file">Ficheiro de notas por voz</string>
+    <string name="helper_note_file">As notas ditadas são adicionadas aqui (criado na primeira nota).</string>
+    <string name="btn_save_vault">Guardar</string>
+    <string name="vault_saved">Definições guardadas ✓</string>
+    <string name="sync_15min">De 15 em 15 minutos</string>
+    <string name="sync_30min">De 30 em 30 minutos</string>
+    <string name="sync_1h">De hora a hora</string>
+    <string name="sync_2h">De 2 em 2 horas</string>
+    <string name="label_daily_refresh">Refresh diário (bateria ≥ 75%% + a carregar)</string>
+    <string name="hint_daily_hour">Hora (0–23)</string>
+    <string name="section_preview">Pré-visualização de tarefas</string>
+    <string name="preview_empty">Sem tarefas — toca em "Enviar tarefas para o Pebble" para atualizar.</string>
+    <string name="btn_sync">Enviar tarefas para o Pebble</string>
+    <string name="log_sending">A enviar tarefas para o Pebble…</string>
+    <string name="log_vault_saved">Configuração gravada. Vault: %1$s</string>
+    <string name="log_vault_not_set">Vault não configurado — abre a app e escolhe uma pasta.</string>
+    <string name="action_copy_log">Copiar registo</string>
+    <string name="log_copied">Registo copiado para a área de transferência</string>
+    <string name="action_clear_log">Limpar registo</string>
+    <string name="log_cleared">Registo limpo</string>
+
+    <string name="sync_status">%1$d tarefas · %2$s</string>
+    <string name="sync_status_never">Ainda não sincronizado</string>
+
+    <string name="tab_config">Configuração</string>
+    <string name="tab_sync">Sincronização</string>
+
+    <string name="btn_install_watch_store">Loja Rebble</string>
+    <string name="btn_install_watch">Instalar (local)</string>
+    <string name="install_no_handler">App Core / Pebble não encontrada para instalar a app do relógio.</string>
+    <string name="install_launched">A abrir a app Pebble para instalar a app do relógio…</string>
+    <string name="install_error">Não foi possível preparar a app do relógio: %1$s</string>
+
+    <string name="svc_channel_name">Ponte Pebble</string>
+    <string name="svc_notification_title">Obsidian Pebble Bridge</string>
+    <string name="svc_notification_text">À escuta de ações do relógio</string>
+</resources>

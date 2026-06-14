@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <ImageView
+        android:id="@+id/dragHandle"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:padding="4dp"
+        android:src="@android:drawable/ic_menu_sort_by_size"
+        android:contentDescription="@string/tag_drag"
+        app:tint="?attr/colorOnSurfaceVariant" />
+
+    <EditText
+        android:id="@+id/edtTag"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.4"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:hint="@string/tag_hint_tag"
+        android:importantForAutofill="no"
+        android:inputType="textNoSuggestions"
+        android:fontFamily="monospace"
+        android:maxLines="1"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <EditText
+        android:id="@+id/edtTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.6"
+        android:layout_marginEnd="4dp"
+        android:hint="@string/tag_hint_title"
+        android:importantForAutofill="no"
+        android:inputType="textNoSuggestions|textCapCharacters"
+        android:maxLines="1"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+    <ImageButton
+        android:id="@+id/btnDeleteTag"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:padding="4dp"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/tag_delete"
+        app:tint="?attr/colorOnSurfaceVariant" />
+
+</LinearLayout>

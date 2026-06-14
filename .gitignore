@@ -1,0 +1,27 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+app/release/
+
+# Watchapp / Pebble SDK
+watchapp/build/
+watchapp/.pebble-sdkinfo
+watchapp/node_modules/
+watchapp/.waflock-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / personal
+google-services.json

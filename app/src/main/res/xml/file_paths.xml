@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Watch .pbw is copied here from assets, then shared with the Core app. -->
+    <cache-path name="pbw" path="pbw/" />
+</paths>
