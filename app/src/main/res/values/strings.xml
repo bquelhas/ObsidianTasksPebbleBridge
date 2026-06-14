@@ -12,7 +12,7 @@
 
     <string name="section_rules">Group rules</string>
     <string name="hint_rules">Rules (Tag, Priority, Name)</string>
-    <string name="helper_rules">One rule per line — tag must appear in the task text.\nExample:\n  #USP, 60, União\n  #SIN, 90, Sintarq\n  #DEN, 70, Denúncias</string>
+    <string name="helper_rules">One rule per line — tag must appear in the task text.\nExample:\n  #work, 90, Work\n  #home, 70, Home\n  #study, 60, Study</string>
     <string name="helper_tags">Each row maps a tag to a group title. Drag to reorder — top rows show first on the watch.</string>
     <string name="tags_empty">No tags yet — pick your vault folder, then tap “Re-scan tags”.</string>
     <string name="tag_hint_tag">#TAG</string>
@@ -29,10 +29,13 @@
     <string name="reminders_empty">No reminders scheduled.</string>
     <string name="reminder_today">Today at %s</string>
     <string name="reminder_tomorrow">Tomorrow at %s</string>
+    <string name="reminder_cancel">Cancel reminder</string>
 
     <string name="section_settings">Sync settings</string>
     <string name="hint_sync_interval">Auto-sync interval</string>
     <string name="hint_max_tasks">Max tasks to send (5–30)</string>
+    <string name="hint_evening_hour">Evening hour (0–23)</string>
+    <string name="hint_morning_hour">Morning hour (0–23)</string>
     <string name="hint_note_file">Voice note file</string>
     <string name="helper_note_file">Dictated notes are appended here (created on first note).</string>
     <string name="btn_save_vault">Save</string>

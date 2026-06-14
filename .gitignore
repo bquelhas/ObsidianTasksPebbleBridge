@@ -25,3 +25,8 @@ Thumbs.db
 
 # Secrets / personal
 google-services.json
+
+# Pebble/waf build
+watchapp/.lock-waf*
+watchapp/build/
+watchapp/node_modules/

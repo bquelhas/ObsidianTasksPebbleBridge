@@ -936,42 +936,25 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *ctx) {
 // REMINDERS (delivered as a NATIVE Android notification)
 // ==============================================================
 
-// Seconds from now until `days_ahead` days from today, at `hour`:00 local time.
-// (mktime normalises mday overflow, so days_ahead can roll across month ends.)
-static int reminder_delay_at(int days_ahead, int hour) {
-  time_t now = time(NULL);
-  struct tm t = *localtime(&now);
-  t.tm_mday += days_ahead;
-  t.tm_hour = hour; t.tm_min = 0; t.tm_sec = 0;
-  int d = (int)(mktime(&t) - now);
-  if (d < 60) d = 60;   // never schedule in the past
-  return d;
-}
+// Reminder type codes sent to Android (KEY_DELAY field).
+// Android computes the actual delay using its configured hours.
+//   0 = 1 hour
+//   1 = tonight  (Android setting: evening hour, default 20h)
+//   2 = tomorrow morning  (Android setting: morning hour, default 9h)
+//   3 = next week (+7 days exactly from now)
+//  10+wday = next weekday at morning hour (wday: 0=Sun..6=Sat)
+#define REMIND_TYPE_1H       0
+#define REMIND_TYPE_TONIGHT  1
+#define REMIND_TYPE_MORNING  2
+#define REMIND_TYPE_WEEK     3
+#define REMIND_TYPE_WDAY    10  // + wday offset (10=Sun, 11=Mon, ... 16=Sat)
 
-// "Tonight" = today at 20:00, or tomorrow 20:00 if it's already evening.
-static int reminder_delay_tonight(void) {
-  time_t now = time(NULL);
-  struct tm t = *localtime(&now);
-  return reminder_delay_at(t.tm_hour >= 20 ? 1 : 0, 20);
-}
-
-// Next occurrence of weekday `wday` (0=Sun..6=Sat) at 09:00, strictly future:
-// if today is that weekday, jump a full week ahead.
-static int reminder_delay_next_wday(int wday) {
-  time_t now = time(NULL);
-  struct tm t = *localtime(&now);
-  int days = (wday - t.tm_wday + 7) % 7;
-  if (days == 0) days = 7;
-  return reminder_delay_at(days, 9);
-}
-
-// The watch no longer renders its own reminder window — that would duplicate
-// the phone's notification and looks worse. We just hand the task + delay to
-// Android, which schedules an exact alarm and fires a native notification.
-static void schedule_reminder(int delay_seconds, int task_index) {
+// The watch hands the task text + a TYPE CODE to Android, which owns all
+// time computation and uses the user's configured hours from the companion app.
+static void schedule_reminder(int remind_type, int task_index) {
   if (task_index < 0 || task_index >= s_item_count ||
       strcmp(s_items[task_index].tag, "HEADER") == 0) return;
-  send_remind_to_android(s_items[task_index].text, delay_seconds);
+  send_remind_to_android(s_items[task_index].text, remind_type);
 }
 
 // ==============================================================
@@ -1036,10 +1019,10 @@ static void action_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data)
     return;
   }
   switch (cell_index->row) {
-    case 1: schedule_reminder(3600, s_action_task_index); break;                        // 1h
-    case 2: schedule_reminder(reminder_delay_tonight(), s_action_task_index); break;    // logo à noite (20h)
-    case 3: schedule_reminder(reminder_delay_at(1, 9), s_action_task_index); break;     // amanhã de manhã (9h)
-    case 4: schedule_reminder(7 * 24 * 3600, s_action_task_index); break;               // próxima semana (+7d exatos)
+    case 1: schedule_reminder(REMIND_TYPE_1H,      s_action_task_index); break;
+    case 2: schedule_reminder(REMIND_TYPE_TONIGHT, s_action_task_index); break;
+    case 3: schedule_reminder(REMIND_TYPE_MORNING, s_action_task_index); break;
+    case 4: schedule_reminder(REMIND_TYPE_WEEK,    s_action_task_index); break;
     case 5:
       // Escolher dia — abre o submenu; só fecha/feedback depois de escolher o dia.
       window_stack_push(s_day_window, true);
@@ -1058,9 +1041,10 @@ static void day_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex 
 }
 
 static void day_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data) {
-  // Rows 0..6 = Monday..Sunday → tm_wday 1,2,3,4,5,6,0.
+  // Rows 0..6 = Monday..Sunday → wday 1,2,3,4,5,6,0.
+  // Type = REMIND_TYPE_WDAY + wday; Android resolves the actual next occurrence.
   static const int row_to_wday[7] = { 1, 2, 3, 4, 5, 6, 0 };
-  schedule_reminder(reminder_delay_next_wday(row_to_wday[cell_index->row]), s_action_task_index);
+  schedule_reminder(REMIND_TYPE_WDAY + row_to_wday[cell_index->row], s_action_task_index);
   window_stack_remove(s_day_window, false);
   window_stack_remove(s_action_window, false);
   show_feedback(1);     // clock animation

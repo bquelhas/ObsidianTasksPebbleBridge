@@ -70,16 +70,15 @@ class BackgroundReceiver : BroadcastReceiver() {
                     "FETCH" -> lerObsidianEEnviar(context)
                     "TL_TOKEN" -> handleTimelineToken(context, data.getString(93)?.trim())
                     "REMIND" -> {
-                        val delay = data.getInteger(92)?.toInt() ?: run { sendLog(context, "REMIND: missing delay"); return@Thread }
+                        val type = data.getInteger(92)?.toInt() ?: run { sendLog(context, "REMIND: missing type"); return@Thread }
                         val taskText = data.getString(93)
-                        if (taskText != null) {
-                            agendarNotificacao(context, taskText, delay)
-                        } else {
-                            val index = data.getInteger(91)?.toInt() ?: run { sendLog(context, "REMIND: missing text and index"); return@Thread }
-                            val tasks = gerarListaOrdenada(context)
-                            if (index >= 0 && index < tasks.size && !tasks[index].isHeader)
-                                agendarNotificacao(context, cleanTitle(tasks[index].texto), delay)
-                        }
+                            ?: run {
+                                val index = data.getInteger(91)?.toInt() ?: run { sendLog(context, "REMIND: missing text and index"); return@Thread }
+                                val tasks = gerarListaOrdenada(context)
+                                if (index < 0 || index >= tasks.size || tasks[index].isHeader) return@Thread
+                                cleanTitle(tasks[index].texto)
+                            }
+                        agendarNotificacao(context, taskText, type)
                     }
                     "DONE" -> {
                         val taskText = data.getString(93)
@@ -238,23 +237,80 @@ class BackgroundReceiver : BroadcastReceiver() {
         return if (full.length > 70) full.substring(0, 67) + "…" else full
     }
 
-    // --- REMIND: schedule an Android local notification for snooze reminders ---
+    // --- REMIND: schedule an Android local notification ---
+    // `type` matches the watch-side REMIND_TYPE_* constants:
+    //   0=1h  1=tonight  2=tomorrow-morning  3=+7days  10+wday=next-weekday
 
-    private fun agendarNotificacao(context: Context, taskTitle: String, delaySeconds: Int) {
-        val triggerAt = System.currentTimeMillis() + delaySeconds.toLong() * 1000L
+    private fun agendarNotificacao(context: Context, taskTitle: String, type: Int) {
+        val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
+        val eveningHour = prefs.getInt("eveningHour", 20)
+        val morningHour = prefs.getInt("morningHour", 9)
+        val triggerAt = resolveReminderTime(type, eveningHour, morningHour)
+        val alarmId = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
         val intent = Intent(context, ReminderReceiver::class.java)
             .putExtra("TASK_TEXT", taskTitle)
-            .putExtra("TRIGGER_AT", triggerAt)
-        val alarmId = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
+            .putExtra("ALARM_ID", alarmId)
         val pi = PendingIntent.getBroadcast(
             context, alarmId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
-        // Mirror it so MainActivity can list pending reminders (AlarmManager isn't queryable).
-        ReminderStore.add(context, taskTitle, triggerAt)
-        sendLog(context, "Android reminder scheduled in ${delaySeconds}s for '$taskTitle'")
+        ReminderStore.add(context, alarmId, taskTitle, triggerAt)
+        val diff = (triggerAt - System.currentTimeMillis()) / 1000
+        sendLog(context, "Reminder in ${diff}s (type=$type) for '$taskTitle'")
+    }
+
+    private fun resolveReminderTime(type: Int, eveningHour: Int, morningHour: Int): Long {
+        val now = System.currentTimeMillis()
+        return when {
+            type == 0 -> now + 3_600_000L                                  // 1h
+            type == 1 -> timeAtHourToday(eveningHour, now)                 // tonight
+            type == 2 -> timeAtHourTomorrow(morningHour, now)              // tomorrow morning
+            type == 3 -> now + 7L * 24 * 3_600_000L                       // +7 days exactly
+            type >= 10 -> timeNextWeekday(type - 10, morningHour, now)     // weekday (wday=type-10)
+            else -> now + 3_600_000L
+        }
+    }
+
+    private fun timeAtHourToday(hour: Int, now: Long): Long {
+        val cal = java.util.Calendar.getInstance().apply {
+            timeInMillis = now
+            set(java.util.Calendar.HOUR_OF_DAY, hour)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        // If that time is in the past, push to tomorrow at the same hour.
+        if (cal.timeInMillis <= now) cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        return cal.timeInMillis
+    }
+
+    private fun timeAtHourTomorrow(hour: Int, now: Long): Long {
+        val cal = java.util.Calendar.getInstance().apply {
+            timeInMillis = now
+            add(java.util.Calendar.DAY_OF_YEAR, 1)
+            set(java.util.Calendar.HOUR_OF_DAY, hour)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        return cal.timeInMillis
+    }
+
+    private fun timeNextWeekday(wday: Int, hour: Int, now: Long): Long {
+        // wday: 0=Sun, 1=Mon, ..., 6=Sat (Calendar.DAY_OF_WEEK uses 1=Sun..7=Sat)
+        val calWday = wday + 1  // Calendar constant
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = now }
+        val today = cal.get(java.util.Calendar.DAY_OF_WEEK)
+        var daysAhead = (calWday - today + 7) % 7
+        if (daysAhead == 0) daysAhead = 7   // strictly next week if today is that day
+        cal.add(java.util.Calendar.DAY_OF_YEAR, daysAhead)
+        cal.set(java.util.Calendar.HOUR_OF_DAY, hour)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
     }
 
     // --- DONE: mark task in file ---
@@ -295,6 +351,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         if (found) {
             context.contentResolver.openOutputStream(fileUri, "wt")
                 ?.bufferedWriter(Charsets.UTF_8)?.use { it.write(modified) }
+            TaskCache.invalidate(fileUri)
             sendLog(context, "Done: '${task.texto}'")
         } else {
             sendLog(context, "DONE: line not found for '${task.texto}'")
@@ -377,6 +434,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         try {
             context.contentResolver.openOutputStream(uri, "wt")
                 ?.bufferedWriter(Charsets.UTF_8)?.use { it.write(sb.toString()) }
+            TaskCache.invalidate(uri)
             sendLog(context, if (pt) "Nota guardada em $displayPath (${sb.length} bytes, linha: '$prefix$text')"
                              else "Note saved to $displayPath (${sb.length} bytes, line: '$prefix$text')")
         } catch (e: Exception) {
@@ -523,9 +581,9 @@ class BackgroundReceiver : BroadcastReceiver() {
         }
         when (actionType) {
             0 -> { marcarTarefaPorTexto(context, task.texto); lerObsidianEEnviar(context) }
-            1 -> agendarNotificacao(context, cleanTitle(task.texto), 3600)
-            2 -> agendarNotificacao(context, cleanTitle(task.texto), 86400)
-            3 -> agendarNotificacao(context, cleanTitle(task.texto), 604800)
+            1 -> agendarNotificacao(context, cleanTitle(task.texto), 0)   // 1h
+            2 -> agendarNotificacao(context, cleanTitle(task.texto), 2)   // tomorrow morning
+            3 -> agendarNotificacao(context, cleanTitle(task.texto), 3)   // +7 days
             else -> sendLog(context, "PIN_ACT: unknown type $actionType")
         }
     }
@@ -693,16 +751,17 @@ class BackgroundReceiver : BroadcastReceiver() {
 
     private fun readMdFile(context: Context, file: DocumentFile, rules: List<Rule>, out: MutableList<ObsidianTask>) {
         try {
-            context.contentResolver.openInputStream(file.uri)
-                ?.bufferedReader(Charsets.UTF_8)?.useLines { lines ->
-                    lines.forEach { line ->
-                        val trimmed = line.trim()
-                        if (trimmed.startsWith("- [ ]")) {
-                            val content = trimmed.substringAfter("- [ ]").trim()
-                            if (content.isNotEmpty()) out.add(processarTask(content, file.uri.toString(), rules))
-                        }
-                    }
+            val lines = TaskCache.getLines(file) {
+                context.contentResolver.openInputStream(file.uri)
+                    ?.bufferedReader(Charsets.UTF_8)?.readLines() ?: emptyList()
+            }
+            lines.forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("- [ ]")) {
+                    val content = trimmed.substringAfter("- [ ]").trim()
+                    if (content.isNotEmpty()) out.add(processarTask(content, file.uri.toString(), rules))
                 }
+            }
         } catch (e: Exception) {
             sendLog(context, "Error reading ${file.name}: ${e.message}")
         }

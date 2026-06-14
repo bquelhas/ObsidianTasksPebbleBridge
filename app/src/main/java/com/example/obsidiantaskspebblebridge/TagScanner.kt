@@ -11,7 +11,7 @@ import androidx.documentfile.provider.DocumentFile
  * Two sources, merged in this order:
  *  1. An Obsidian Tasks `group by function` block (the authoritative source — it
  *     carries both the title AND the intended order). We parse lines shaped like
- *        if (task.tags.includes('#DEN')) return '02_DENÚNCIAS';
+ *        if (task.tags.includes('#work')) return '01_Work';
  *  2. Every other tag that appears in an actual task line ("- [ ] … #FOO"),
  *     appended with a blank title for the user to fill in.
  *

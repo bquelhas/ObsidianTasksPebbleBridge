@@ -18,8 +18,8 @@ class ReminderReceiver : BroadcastReceiver() {
 
         val taskText = intent.getStringExtra("TASK_TEXT") ?: "Lembrete Obsidian"
         // Drop it from the pending-reminders list now that it has fired.
-        val triggerAt = intent.getLongExtra("TRIGGER_AT", 0L)
-        if (triggerAt > 0L) ReminderStore.remove(context, taskText, triggerAt)
+        val alarmId = intent.getIntExtra("ALARM_ID", 0)
+        if (alarmId != 0) ReminderStore.remove(context, alarmId)
         // Usamos um ID fixo para garantir que o canal é recriado se mudares configurações
         val channelId = "obsidian_reminders_channel"
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

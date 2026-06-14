@@ -12,7 +12,7 @@
 
     <string name="section_rules">Regras de grupos</string>
     <string name="hint_rules">Regras (Tag, Prioridade, Nome)</string>
-    <string name="helper_rules">Uma regra por linha — a tag tem de aparecer no texto da tarefa.\nExemplo:\n  #USP, 60, União\n  #SIN, 90, Sintarq\n  #DEN, 70, Denúncias</string>
+    <string name="helper_rules">Uma regra por linha — a tag tem de aparecer no texto da tarefa.\nExemplo:\n  #trabalho, 90, Trabalho\n  #casa, 70, Casa\n  #estudo, 60, Estudo</string>
     <string name="helper_tags">Cada linha liga uma tag a um título de grupo. Arrasta para reordenar — as linhas de cima aparecem primeiro no relógio.</string>
     <string name="tags_empty">Sem tags — escolhe a pasta do vault e toca em “Reanalisar tags”.</string>
     <string name="tag_hint_tag">#TAG</string>

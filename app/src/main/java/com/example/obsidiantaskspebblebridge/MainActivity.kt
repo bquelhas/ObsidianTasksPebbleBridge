@@ -11,9 +11,12 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -54,7 +57,9 @@ class MainActivity : AppCompatActivity() {
     private var rvTags: RecyclerView? = null
     private var txtTagsEmpty: TextView? = null
     private var txtSyncStatus: TextView? = null
-    private var txtReminders: TextView? = null
+    private var llReminders: LinearLayout? = null
+    private var edtEveningHour: TextInputEditText? = null
+    private var edtMorningHour: TextInputEditText? = null
     private var cardVault: MaterialCardView? = null
 
     private lateinit var tagAdapter: TagRuleAdapter
@@ -143,18 +148,67 @@ class MainActivity : AppCompatActivity() {
         renderReminders()
     }
 
-    /** Render the list of pending (scheduled, not-yet-fired) reminders. */
+    /** Render the list of pending (scheduled, not-yet-fired) reminders with cancel buttons. */
     private fun renderReminders() {
-        val tv = txtReminders ?: return
+        val ll = llReminders ?: return
+        ll.removeAllViews()
         val pending = ReminderStore.pending(this)
         if (pending.isEmpty()) {
-            tv.text = getString(R.string.reminders_empty)
+            ll.addView(TextView(this).apply {
+                text = getString(R.string.reminders_empty)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+            })
             return
         }
         val now = System.currentTimeMillis()
-        tv.text = pending.joinToString("\n") { r ->
-            "• ${r.title}  —  ${formatReminderWhen(r.triggerAt, now)}"
+        val dp = resources.displayMetrics.density
+        pending.forEach { r ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            val label = TextView(this).apply {
+                text = "• ${r.title}  —  ${formatReminderWhen(r.triggerAt, now)}"
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                layoutParams = LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            val btnX = android.widget.ImageButton(this).apply {
+                setImageResource(R.drawable.ic_clear)
+                val ta = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackgroundBorderless))
+                background = ta.getDrawable(0)
+                ta.recycle()
+                setColorFilter(
+                    themeColor(com.google.android.material.R.attr.colorPrimary),
+                    android.graphics.PorterDuff.Mode.SRC_IN
+                )
+                contentDescription = getString(R.string.reminder_cancel)
+                val size = (40 * dp).toInt()
+                val pad  = (8  * dp).toInt()
+                layoutParams = LinearLayout.LayoutParams(size, size)
+                setPadding(pad, pad, pad, pad)
+                setOnClickListener { cancelReminder(r.alarmId) }
+            }
+            row.addView(label)
+            row.addView(btnX)
+            ll.addView(row)
         }
+    }
+
+    /** Cancel a scheduled reminder: remove from AlarmManager + ReminderStore. */
+    private fun cancelReminder(alarmId: Int) {
+        val pi = PendingIntent.getBroadcast(
+            this, alarmId,
+            Intent(this, ReminderReceiver::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        (getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pi)
+        ReminderStore.remove(this, alarmId)
+        // ACTION_UPDATED broadcast from remove() will call renderReminders() automatically.
     }
 
     /** Human "when" for a reminder: time today, weekday+time this week, else date+time. */
@@ -187,9 +241,11 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         // Focus-loss may never fire (e.g. user types then backgrounds the app), so
-        // flush the text fields here too. Both persist helpers no-op if unbound.
+        // flush the text fields here too. All persist helpers no-op if unbound.
         persistNoteFile()
         persistMaxTasks()
+        persistEveningHour()
+        persistMorningHour()
     }
 
     override fun onDestroy() {
@@ -280,12 +336,18 @@ class MainActivity : AppCompatActivity() {
         scrollLog           = root.findViewById(R.id.scrollLog)
         spinnerSyncInterval = root.findViewById(R.id.spinnerSyncInterval)
         edtMaxTasks         = root.findViewById(R.id.edtMaxTasks)
-        txtReminders        = root.findViewById(R.id.txtReminders)
+        edtEveningHour      = root.findViewById(R.id.edtEveningHour)
+        edtMorningHour      = root.findViewById(R.id.edtMorningHour)
+        llReminders         = root.findViewById(R.id.llReminders)
         renderReminders()
 
         edtMaxTasks?.setText(prefs.getInt("maxTasks", 20).toString())
-        // Auto-save the max-tasks value when the field loses focus.
+        edtEveningHour?.setText(prefs.getInt("eveningHour", 20).toString())
+        edtMorningHour?.setText(prefs.getInt("morningHour", 9).toString())
+        // Auto-save values when fields lose focus.
         edtMaxTasks?.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) persistMaxTasks() }
+        edtEveningHour?.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) persistEveningHour() }
+        edtMorningHour?.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) persistMorningHour() }
         setupSyncIntervalDropdown()
 
         // The log lives in a ScrollView nested inside the page's NestedScrollView,
@@ -338,6 +400,18 @@ class MainActivity : AppCompatActivity() {
     private fun persistMaxTasks() {
         val maxTasks = edtMaxTasks?.text?.toString()?.toIntOrNull()?.coerceIn(5, 30) ?: return
         prefs.edit().putInt("maxTasks", maxTasks).apply()
+    }
+
+    /** Auto-persist the evening reminder hour (called when the field loses focus). */
+    private fun persistEveningHour() {
+        val h = edtEveningHour?.text?.toString()?.toIntOrNull()?.coerceIn(0, 23) ?: return
+        prefs.edit().putInt("eveningHour", h).apply()
+    }
+
+    /** Auto-persist the morning reminder hour (called when the field loses focus). */
+    private fun persistMorningHour() {
+        val h = edtMorningHour?.text?.toString()?.toIntOrNull()?.coerceIn(0, 23) ?: return
+        prefs.edit().putInt("morningHour", h).apply()
     }
 
     /** Auto-persist the voice-note target file name (normalised to end in .md). */
