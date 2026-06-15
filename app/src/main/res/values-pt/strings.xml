@@ -9,6 +9,7 @@
     <string name="section_vault">Vault Obsidian</string>
     <string name="btn_choose_folder">Escolher pasta</string>
     <string name="vault_none">Nenhuma pasta seleccionada</string>
+    <string name="vault_lost">Acesso ao vault perdido — escolhe a pasta de novo</string>
 
     <string name="section_rules">Regras de grupos</string>
     <string name="hint_rules">Regras (Tag, Prioridade, Nome)</string>
@@ -30,6 +31,8 @@
     <string name="reminder_today">Hoje às %s</string>
     <string name="reminder_tomorrow">Amanhã às %s</string>
     <string name="reminder_cancel">Cancelar lembrete</string>
+    <string name="notif_action_done">Concluir</string>
+    <string name="notif_action_snooze">Adiar 1h</string>
 
     <string name="section_settings">Configurações de sincronização</string>
     <string name="hint_sync_interval">Intervalo de sincronização automática</string>

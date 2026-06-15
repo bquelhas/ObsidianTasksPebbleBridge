@@ -29,9 +29,18 @@ class BackgroundReceiver : BroadcastReceiver() {
 
     private val PEBBLE_APP_UUID = UUID.fromString("177c4f8f-df6c-4721-a8eb-a7b7e9b4b60e")
     private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    private val DUE_DATE_REGEX = Regex("""📅\s*(\d{4}-\d{2}-\d{2})|@due\((\d{4}-\d{2}-\d{2})\)|due::(\d{4}-\d{2}-\d{2})""")
+
+    companion object {
+        // Actions fired by the reminder notification's "Done" / "Snooze" buttons.
+        const val ACTION_NOTIF_DONE = "com.example.obsidiantaskspebblebridge.NOTIF_DONE"
+        const val ACTION_NOTIF_SNOOZE = "com.example.obsidiantaskspebblebridge.NOTIF_SNOOZE"
+    }
 
     override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            ACTION_NOTIF_DONE -> { handleNotifDone(context, intent); return }
+            ACTION_NOTIF_SNOOZE -> { handleNotifSnooze(context, intent); return }
+        }
         if (intent.action != "com.getpebble.action.app.RECEIVE") return
 
         val transactionId = intent.getIntExtra(com.getpebble.android.kit.Constants.TRANSACTION_ID, -1)
@@ -243,6 +252,48 @@ class BackgroundReceiver : BroadcastReceiver() {
         return if (full.length > 70) full.substring(0, 67) + "…" else full
     }
 
+    // --- Notification action buttons (Done / Snooze) ---
+
+    /** "Done" tapped on a reminder notification: mark the task in the vault,
+     *  re-send the list to the watch and dismiss the notification. */
+    private fun handleNotifDone(context: Context, intent: Intent) {
+        val text = intent.getStringExtra("TASK_TEXT") ?: return
+        val notifId = intent.getIntExtra("NOTIF_ID", 0)
+        val alarmId = intent.getIntExtra("ALARM_ID", 0)
+        val pr = goAsync()
+        Thread {
+            try {
+                if (alarmId != 0) ReminderStore.remove(context, alarmId)
+                marcarTarefaPorTexto(context, text)
+                lerObsidianEEnviar(context)
+                if (notifId != 0) {
+                    (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notifId)
+                }
+                sendLog(context, "Notif: '$text' marcada como concluída")
+            } catch (e: Exception) {
+                sendLog(context, "Notif DONE error: ${e.message}")
+            } finally { pr.finish() }
+        }.start()
+    }
+
+    /** "Snooze 1h" tapped: reschedule the reminder for +1h and dismiss it. */
+    private fun handleNotifSnooze(context: Context, intent: Intent) {
+        val text = intent.getStringExtra("TASK_TEXT") ?: return
+        val notifId = intent.getIntExtra("NOTIF_ID", 0)
+        val pr = goAsync()
+        Thread {
+            try {
+                agendarNotificacao(context, text, 0) // type 0 = +1h
+                if (notifId != 0) {
+                    (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notifId)
+                }
+                sendLog(context, "Notif: '$text' adiada 1h")
+            } catch (e: Exception) {
+                sendLog(context, "Notif SNOOZE error: ${e.message}")
+            } finally { pr.finish() }
+        }.start()
+    }
+
     // --- REMIND: schedule an Android local notification ---
     // `type` matches the watch-side REMIND_TYPE_* constants:
     //   0=1h  1=tonight  2=tomorrow-morning  3=+7days  10+wday=next-weekday
@@ -303,14 +354,44 @@ class BackgroundReceiver : BroadcastReceiver() {
 
     // Set/replace the 📅 due date on a task line. If one already exists it is
     // updated; otherwise it is appended at the end of the line.
-    private fun setDueDateOnLine(line: String, dueStr: String): String {
-        val emojiDue = Regex("""📅\s*\d{4}-\d{2}-\d{2}""")
-        return if (emojiDue.containsMatchIn(line)) {
-            emojiDue.replace(line, "📅 $dueStr")
-        } else {
-            line.trimEnd() + " 📅 $dueStr"
-        }
+    private fun setDueDateOnLine(line: String, dueStr: String): String =
+        TaskDates.setDueDateOnLine(line, dueStr)
+
+    // Schedule a reminder from a timeline pin AND record it on the vault task as a
+    // non-destructive Obsidian "scheduled" date (⏳) — the task's original 📅 due
+    // date is left untouched, so we never overwrite a real deadline.
+    private fun stampPinReminder(context: Context, task: ObsidianTask, type: Int) {
+        val triggerAt = agendarNotificacao(context, cleanTitle(task.texto), type)
+        val sched = DATE_FORMAT.format(Date(triggerAt))
+        if (addScheduledDateToTask(context, task, sched)) lerObsidianEEnviar(context)
     }
+
+    private fun addScheduledDateToTask(context: Context, task: ObsidianTask, dateStr: String): Boolean {
+        val fileUri = Uri.parse(task.caminhoFicheiro)
+        val content = context.contentResolver.openInputStream(fileUri)
+            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: run {
+            sendLog(context, "PIN: cannot read file to schedule '${task.texto}'"); return false
+        }
+        var done = false
+        val modified = content.lines().joinToString("\n") { line ->
+            if (!done && line.contains("- [ ]") && line.contains(task.texto)) {
+                done = true
+                setScheduledDateOnLine(line, dateStr)
+            } else line
+        }
+        if (done && modified != content) {
+            context.contentResolver.openOutputStream(fileUri, "wt")
+                ?.bufferedWriter(Charsets.UTF_8)?.use { it.write(modified) }
+            TaskCache.invalidate(fileUri)
+            sendLog(context, "Pin reminder ⏳ $dateStr set on '${cleanTitle(task.texto)}'")
+            return true
+        }
+        return false
+    }
+
+    // Set/replace the ⏳ scheduled date on a task line (Obsidian Tasks format).
+    private fun setScheduledDateOnLine(line: String, dateStr: String): String =
+        TaskDates.setScheduledDateOnLine(line, dateStr)
 
     private fun resolveReminderTime(type: Int, eveningHour: Int, morningHour: Int): Long {
         val now = System.currentTimeMillis()
@@ -632,9 +713,9 @@ class BackgroundReceiver : BroadcastReceiver() {
         }
         when (actionType) {
             0 -> { marcarTarefaPorTexto(context, task.texto); lerObsidianEEnviar(context) }
-            1 -> agendarNotificacao(context, cleanTitle(task.texto), 0)   // 1h
-            2 -> agendarNotificacao(context, cleanTitle(task.texto), 2)   // tomorrow morning
-            3 -> agendarNotificacao(context, cleanTitle(task.texto), 3)   // +7 days
+            1 -> stampPinReminder(context, task, 0)   // 1h
+            2 -> stampPinReminder(context, task, 2)   // tomorrow morning
+            3 -> stampPinReminder(context, task, 3)   // +7 days
             else -> sendLog(context, "PIN_ACT: unknown type $actionType")
         }
     }
@@ -685,8 +766,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         ((to.time - from.time) / (1000L * 60 * 60 * 24)).toInt()
 
     private fun extractDueDate(text: String): Date? {
-        val match = DUE_DATE_REGEX.find(text) ?: return null
-        val dateStr = match.groupValues.drop(1).firstOrNull { it.isNotEmpty() } ?: return null
+        val dateStr = TaskDates.extractDueDateIso(text) ?: return null
         return runCatching { DATE_FORMAT.parse(dateStr) }.getOrNull()
     }
 

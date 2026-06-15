@@ -9,6 +9,7 @@
     <string name="section_vault">Obsidian Vault</string>
     <string name="btn_choose_folder">Choose folder</string>
     <string name="vault_none">No folder selected</string>
+    <string name="vault_lost">Vault access lost — choose the folder again</string>
 
     <string name="section_rules">Group rules</string>
     <string name="hint_rules">Rules (Tag, Priority, Name)</string>
@@ -30,6 +31,8 @@
     <string name="reminder_today">Today at %s</string>
     <string name="reminder_tomorrow">Tomorrow at %s</string>
     <string name="reminder_cancel">Cancel reminder</string>
+    <string name="notif_action_done">Done</string>
+    <string name="notif_action_snooze">Snooze 1h</string>
 
     <string name="section_settings">Sync settings</string>
     <string name="hint_sync_interval">Auto-sync interval</string>

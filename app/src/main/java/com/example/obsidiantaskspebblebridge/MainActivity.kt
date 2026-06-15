@@ -13,13 +13,17 @@ import android.util.Log
 import android.view.View
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.content.res.ColorStateList
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.widget.TextViewCompat
+import androidx.documentfile.provider.DocumentFile
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -153,15 +157,35 @@ class MainActivity : AppCompatActivity() {
         val ll = llReminders ?: return
         ll.removeAllViews()
         val pending = ReminderStore.pending(this)
+        val dp = resources.displayMetrics.density
         if (pending.isEmpty()) {
-            ll.addView(TextView(this).apply {
-                text = getString(R.string.reminders_empty)
-                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+            val box = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                setPadding(0, (12 * dp).toInt(), 0, (12 * dp).toInt())
+            }
+            box.addView(ImageView(this).apply {
+                setImageResource(R.drawable.ic_empty_reminders)
+                setColorFilter(
+                    themeColor(com.google.android.material.R.attr.colorOutline),
+                    android.graphics.PorterDuff.Mode.SRC_IN
+                )
+                layoutParams = LinearLayout.LayoutParams((48 * dp).toInt(), (48 * dp).toInt())
             })
+            box.addView(TextView(this).apply {
+                text = getString(R.string.reminders_empty)
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                setPadding(0, (8 * dp).toInt(), 0, 0)
+            })
+            ll.addView(box)
             return
         }
         val now = System.currentTimeMillis()
-        val dp = resources.displayMetrics.density
         pending.forEach { r ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -325,7 +349,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         val vaultUri = prefs.getString("vaultUri", null)
-        if (vaultUri != null) updateVaultLabel(Uri.parse(vaultUri)) else updateVaultEmptyState(false)
+        when {
+            vaultUri == null -> updateVaultEmptyState(false)
+            vaultAccessible(Uri.parse(vaultUri)) -> updateVaultLabel(Uri.parse(vaultUri))
+            // URI saved but the persisted permission/folder is gone (e.g. app
+            // reinstalled, folder moved/removed) — flag it loudly so the user
+            // re-picks the folder instead of seeing silent "vault not configured".
+            else -> updateVaultEmptyState(false, lost = true)
+        }
         prefs.getString("taskPreview", null)?.let { updatePreview(it) }
         restoreSyncStatus()
         updateTagsEmpty()
@@ -437,7 +468,21 @@ class MainActivity : AppCompatActivity() {
     // --- Tag editor (Setup tab) ---
 
     private fun updateTagsEmpty() {
-        txtTagsEmpty?.visibility = if (tagAdapter.itemCount == 0) View.VISIBLE else View.GONE
+        val empty = tagAdapter.itemCount == 0
+        txtTagsEmpty?.visibility = if (empty) View.VISIBLE else View.GONE
+        if (empty) setEmptyIllustration(txtTagsEmpty, R.drawable.ic_empty_tasks)
+    }
+
+    /** Show a muted illustration above an empty-state TextView (centered). */
+    private fun setEmptyIllustration(tv: TextView?, iconRes: Int) {
+        tv ?: return
+        tv.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        tv.setCompoundDrawablesRelativeWithIntrinsicBounds(0, iconRes, 0, 0)
+        tv.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
+        TextViewCompat.setCompoundDrawableTintList(
+            tv,
+            ColorStateList.valueOf(themeColor(com.google.android.material.R.attr.colorOutline))
+        )
     }
 
     /** Parse the stored "tag, priority, name" lines into rows, ordered by priority desc. */
@@ -525,15 +570,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Highlight the vault card (red stroke + name) when no folder is configured,
-     *  so the required first step is obvious. */
-    private fun updateVaultEmptyState(hasVault: Boolean) {
+     *  so the required first step is obvious. `lost` distinguishes "never set"
+     *  from "was set but access is gone". */
+    private fun updateVaultEmptyState(hasVault: Boolean, lost: Boolean = false) {
         if (hasVault) {
             txtVaultName?.setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurface))
             cardVault?.strokeColor = themeColor(com.google.android.material.R.attr.colorOutlineVariant)
         } else {
-            txtVaultName?.text = getString(R.string.vault_none)
+            txtVaultName?.text = getString(if (lost) R.string.vault_lost else R.string.vault_none)
             txtVaultName?.setTextColor(themeColor(com.google.android.material.R.attr.colorError))
             cardVault?.strokeColor = themeColor(com.google.android.material.R.attr.colorError)
+        }
+    }
+
+    /** True if we still hold a readable persisted permission for the vault folder. */
+    private fun vaultAccessible(uri: Uri): Boolean {
+        val held = contentResolver.persistedUriPermissions.any {
+            it.uri == uri && it.isReadPermission
+        }
+        if (!held) return false
+        return try {
+            DocumentFile.fromTreeUri(this, uri)?.canRead() == true
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -557,7 +616,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updatePreview(text: String) {
-        runOnUiThread { txtPreview?.text = text.ifBlank { getString(R.string.preview_empty) } }
+        runOnUiThread {
+            val tv = txtPreview ?: return@runOnUiThread
+            if (text.isBlank()) {
+                tv.text = getString(R.string.preview_empty)
+                setEmptyIllustration(tv, R.drawable.ic_empty_tasks)
+            } else {
+                tv.text = text
+                tv.gravity = android.view.Gravity.START
+                tv.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, 0, 0)
+            }
+        }
     }
 
     private fun scheduleAutoSync(replace: Boolean) {
