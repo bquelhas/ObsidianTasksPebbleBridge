@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
     private var txtTagsEmpty: TextView? = null
     private var txtSyncStatus: TextView? = null
     private var llReminders: LinearLayout? = null
+    private var txtRemindersHeader: TextView? = null
     private var edtEveningHour: TextInputEditText? = null
     private var edtMorningHour: TextInputEditText? = null
     private var cardVault: MaterialCardView? = null
@@ -154,9 +155,12 @@ class MainActivity : AppCompatActivity() {
 
     /** Render the list of pending (scheduled, not-yet-fired) reminders with cancel buttons. */
     private fun renderReminders() {
+        val pending = ReminderStore.pending(this)
         val ll = llReminders ?: return
         ll.removeAllViews()
-        val pending = ReminderStore.pending(this)
+        txtRemindersHeader?.text =
+            if (pending.isEmpty()) getString(R.string.section_reminders)
+            else "${getString(R.string.section_reminders)} (${pending.size})"
         val dp = resources.displayMetrics.density
         if (pending.isEmpty()) {
             val box = LinearLayout(this).apply {
@@ -284,11 +288,15 @@ class MainActivity : AppCompatActivity() {
         val viewPager = findViewById<ViewPager2>(R.id.viewPager)
 
         viewPager.adapter = PagerAdapter { position, root ->
-            if (position == 0) bindSetupPage(root) else bindSyncPage(root)
+            when (position) {
+                0 -> bindPreviewPage(root)
+                1 -> bindSetupPage(root)
+                else -> bindSyncPage(root)
+            }
         }
-        // 2 pages total → keep the neighbour alive so swiping back never loses
-        // in-progress edits or the log view.
-        viewPager.offscreenPageLimit = 1
+        // 3 pages total → keep them all alive so swiping never loses in-progress
+        // edits or the log view.
+        viewPager.offscreenPageLimit = 2
 
         // Edge-to-edge: the CoordinatorLayout (fitsSystemWindows) insets the top
         // for the tab bar; here we pad the pager's internal RecyclerView so page
@@ -302,15 +310,31 @@ class MainActivity : AppCompatActivity() {
         }
 
         TabLayoutMediator(tabLayout, viewPager) { tab, pos ->
-            tab.text = getString(if (pos == 0) R.string.tab_config else R.string.tab_sync)
+            when (pos) {
+                0 -> { tab.text = getString(R.string.tab_preview); tab.setIcon(R.drawable.ic_tab_preview) }
+                1 -> { tab.text = getString(R.string.tab_config);  tab.setIcon(R.drawable.ic_tab_setup) }
+                else -> { tab.text = getString(R.string.tab_sync); tab.setIcon(R.drawable.ic_tab_sync) }
+            }
         }.attach()
+
+        // Preview sits left of Setup, but Setup is the entry point — open there.
+        viewPager.setCurrentItem(1, false)
+    }
+
+    private fun bindPreviewPage(root: View) {
+        txtPreview         = root.findViewById(R.id.txtPreview)
+        txtSyncStatus      = root.findViewById(R.id.txtSyncStatus)
+        llReminders        = root.findViewById(R.id.llReminders)
+        txtRemindersHeader = root.findViewById(R.id.txtRemindersHeader)
+
+        prefs.getString("taskPreview", null)?.let { updatePreview(it) }
+        restoreSyncStatus()
+        renderReminders()
     }
 
     private fun bindSetupPage(root: View) {
         txtVaultName  = root.findViewById(R.id.txtVaultName)
-        txtPreview    = root.findViewById(R.id.txtPreview)
         txtTagsEmpty  = root.findViewById(R.id.txtTagsEmpty)
-        txtSyncStatus = root.findViewById(R.id.txtSyncStatus)
         cardVault     = root.findViewById(R.id.cardVault)
         rvTags        = root.findViewById(R.id.rvTags)
         edtNoteFile   = root.findViewById(R.id.edtNoteFile)
@@ -357,8 +381,6 @@ class MainActivity : AppCompatActivity() {
             // re-picks the folder instead of seeing silent "vault not configured".
             else -> updateVaultEmptyState(false, lost = true)
         }
-        prefs.getString("taskPreview", null)?.let { updatePreview(it) }
-        restoreSyncStatus()
         updateTagsEmpty()
     }
 
@@ -369,8 +391,6 @@ class MainActivity : AppCompatActivity() {
         edtMaxTasks         = root.findViewById(R.id.edtMaxTasks)
         edtEveningHour      = root.findViewById(R.id.edtEveningHour)
         edtMorningHour      = root.findViewById(R.id.edtMorningHour)
-        llReminders         = root.findViewById(R.id.llReminders)
-        renderReminders()
 
         edtMaxTasks?.setText(prefs.getInt("maxTasks", 20).toString())
         edtEveningHour?.setText(prefs.getInt("eveningHour", 20).toString())

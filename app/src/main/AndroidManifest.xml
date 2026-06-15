@@ -55,6 +55,10 @@
             <intent-filter android:priority="999">
                 <action android:name="com.getpebble.action.app.RECEIVE" />
             </intent-filter>
+            <!-- External "sync now" trigger (e.g. Tasker after opening Obsidian). -->
+            <intent-filter>
+                <action android:name="com.example.obsidiantaskspebblebridge.SYNC_NOW" />
+            </intent-filter>
         </receiver>
 
         <provider

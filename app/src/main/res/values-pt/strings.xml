@@ -34,6 +34,8 @@
     <string name="notif_action_done">Concluir</string>
     <string name="notif_action_snooze">Adiar 1h</string>
 
+    <string name="section_tasker">Sync automático sem abrir o Obsidian</string>
+    <string name="tasker_body">O Obsidian Sync só atualiza os ficheiros deste telemóvel enquanto a app Obsidian está aberta. Para atualizar o relógio automaticamente — sem PC — usa uma app de automação como o Tasker:\n\n1. Novo Perfil → Hora (ex.: a cada 12 horas).\n2. Tarefa → App → Abrir App: Obsidian.\n3. Tarefa → Esperar: 30 segundos (deixa o Obsidian Sync puxar).\n4. Tarefa → Enviar Intent:\n   • Action: com.example.obsidiantaskspebblebridge.SYNC_NOW\n   • Package: com.bquelhas.obsidiantasks\n   • Target: Broadcast Receiver\n5. (Opcional) Tarefa → Ir para o Ecrã Inicial.\n\nDica: exclui o Tasker e o Obsidian da otimização de bateria, senão o Android pode matá-los.</string>
     <string name="section_settings">Configurações de sincronização</string>
     <string name="hint_sync_interval">Intervalo de sincronização automática</string>
     <string name="hint_max_tasks">Máx. tarefas a enviar (5–30)</string>
@@ -63,6 +65,7 @@
     <string name="sync_status">%1$d tarefas · %2$s</string>
     <string name="sync_status_never">Ainda não sincronizado</string>
 
+    <string name="tab_preview">Pré-visualização</string>
     <string name="tab_config">Configuração</string>
     <string name="tab_sync">Sincronização</string>
 

@@ -34,12 +34,16 @@ class BackgroundReceiver : BroadcastReceiver() {
         // Actions fired by the reminder notification's "Done" / "Snooze" buttons.
         const val ACTION_NOTIF_DONE = "com.example.obsidiantaskspebblebridge.NOTIF_DONE"
         const val ACTION_NOTIF_SNOOZE = "com.example.obsidiantaskspebblebridge.NOTIF_SNOOZE"
+        // External "sync now" trigger (e.g. fired by Tasker after it opens Obsidian
+        // so Obsidian Sync pulls the latest vault, then tells us to re-read + push).
+        const val ACTION_SYNC_NOW = "com.example.obsidiantaskspebblebridge.SYNC_NOW"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             ACTION_NOTIF_DONE -> { handleNotifDone(context, intent); return }
             ACTION_NOTIF_SNOOZE -> { handleNotifSnooze(context, intent); return }
+            ACTION_SYNC_NOW -> { handleSyncNow(context); return }
         }
         if (intent.action != "com.getpebble.action.app.RECEIVE") return
 
@@ -131,6 +135,18 @@ class BackgroundReceiver : BroadcastReceiver() {
             } finally {
                 pendingResult.finish()
             }
+        }.start()
+    }
+
+    /** Re-read the vault and push to the watch, off the main thread. Triggered by
+     *  an external SYNC_NOW broadcast (Tasker) — see ACTION_SYNC_NOW. */
+    private fun handleSyncNow(context: Context) {
+        sendLog(context, "SYNC_NOW received (external trigger)")
+        val pr = goAsync()
+        Thread {
+            try { lerObsidianEEnviar(context) }
+            catch (e: Exception) { sendLog(context, "SYNC_NOW error: ${e.message}") }
+            finally { pr.finish() }
         }.start()
     }
 

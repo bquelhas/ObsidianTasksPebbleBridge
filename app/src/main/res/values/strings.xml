@@ -34,6 +34,8 @@
     <string name="notif_action_done">Done</string>
     <string name="notif_action_snooze">Snooze 1h</string>
 
+    <string name="section_tasker">Auto-sync without opening Obsidian</string>
+    <string name="tasker_body">Obsidian Sync only refreshes this phone\'s files while the Obsidian app is open. To update the watch automatically — with no PC — use an automation app like Tasker:\n\n1. New Profile → Time (e.g. every 12 hours).\n2. Task → App → Launch App: Obsidian.\n3. Task → Wait: 30 seconds (let Obsidian Sync pull).\n4. Task → Send Intent:\n   • Action: com.example.obsidiantaskspebblebridge.SYNC_NOW\n   • Package: com.bquelhas.obsidiantasks\n   • Target: Broadcast Receiver\n5. (Optional) Task → Go Home.\n\nTip: exclude Tasker and Obsidian from battery optimization, or Android may kill them.</string>
     <string name="section_settings">Sync settings</string>
     <string name="hint_sync_interval">Auto-sync interval</string>
     <string name="hint_max_tasks">Max tasks to send (5–30)</string>
@@ -63,6 +65,7 @@
     <string name="sync_status">%1$d tasks · %2$s</string>
     <string name="sync_status_never">Not synced yet</string>
 
+    <string name="tab_preview">Preview</string>
     <string name="tab_config">Setup</string>
     <string name="tab_sync">Sync</string>
 
