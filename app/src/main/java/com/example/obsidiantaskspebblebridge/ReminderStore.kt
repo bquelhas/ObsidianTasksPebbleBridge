@@ -4,32 +4,30 @@ import android.content.Context
 import android.content.Intent
 
 // Pending reminders aren't queryable from AlarmManager, so we mirror them in
-// SharedPreferences: add() when scheduled, remove() when fired/cancelled. The
-// list is stored one-per-line as "triggerAtMillis|title".
+// SharedPreferences: add() when scheduled, remove() when fired/cancelled.
+// Each entry is stored as "alarmId|triggerAtMillis|title".
 object ReminderStore {
     private const val PREFS = "ObsidianConfig"
     private const val KEY = "pendingReminders"
     const val ACTION_UPDATED = "UPDATE_REMINDERS"
 
-    data class Reminder(val triggerAt: Long, val title: String)
+    data class Reminder(val alarmId: Int, val triggerAt: Long, val title: String)
 
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
-    fun add(ctx: Context, title: String, triggerAt: Long) {
+    fun add(ctx: Context, alarmId: Int, title: String, triggerAt: Long) {
         val list = loadRaw(ctx).toMutableList()
-        list.add(Reminder(triggerAt, title))
+        list.add(Reminder(alarmId, triggerAt, title))
         save(ctx, list)
         notifyUpdated(ctx)
     }
 
     @Synchronized
-    fun remove(ctx: Context, title: String, triggerAt: Long) {
+    fun remove(ctx: Context, alarmId: Int) {
         val list = loadRaw(ctx).toMutableList()
-        val idx = list.indexOfFirst { it.title == title && it.triggerAt == triggerAt }
-        if (idx >= 0) list.removeAt(idx)
-        else list.indexOfFirst { it.title == title }.let { if (it >= 0) list.removeAt(it) }
+        list.removeAll { it.alarmId == alarmId }
         save(ctx, list)
         notifyUpdated(ctx)
     }
@@ -46,14 +44,15 @@ object ReminderStore {
 
     private fun loadRaw(ctx: Context): List<Reminder> =
         (prefs(ctx).getString(KEY, "") ?: "").lines().mapNotNull { line ->
-            val sep = line.indexOf('|')
-            if (sep <= 0) return@mapNotNull null
-            val t = line.substring(0, sep).toLongOrNull() ?: return@mapNotNull null
-            Reminder(t, line.substring(sep + 1))
+            val parts = line.split("|", limit = 3)
+            if (parts.size != 3) return@mapNotNull null
+            val id  = parts[0].toIntOrNull()  ?: return@mapNotNull null
+            val t   = parts[1].toLongOrNull() ?: return@mapNotNull null
+            Reminder(id, t, parts[2])
         }
 
     private fun save(ctx: Context, list: List<Reminder>) {
-        val s = list.joinToString("\n") { "${it.triggerAt}|${it.title.replace("\n", " ")}" }
+        val s = list.joinToString("\n") { "${it.alarmId}|${it.triggerAt}|${it.title.replace("\n", " ")}" }
         prefs(ctx).edit().putString(KEY, s).apply()
     }
 

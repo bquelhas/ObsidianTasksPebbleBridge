@@ -63,8 +63,11 @@
     <string name="tab_config">Setup</string>
     <string name="tab_sync">Sync</string>
 
+    <string name="section_get_app">Get pebble app</string>
     <string name="btn_install_watch_store">Rebble store</string>
-    <string name="btn_install_watch">Install (local)</string>
+    <string name="btn_install_watch">Local install</string>
+    <string name="btn_about">About · GitHub</string>
+    <string name="about_url">https://github.com/bquelhas/ObsidianTasksPebbleBridge</string>
     <string name="install_no_handler">Core / Pebble app not found to install the watch app.</string>
     <string name="install_launched">Opening Pebble app to install the watch app…</string>
     <string name="install_error">Could not prepare watch app: %1$s</string>

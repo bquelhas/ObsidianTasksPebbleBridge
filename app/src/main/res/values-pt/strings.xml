@@ -29,10 +29,13 @@
     <string name="reminders_empty">Sem lembretes agendados.</string>
     <string name="reminder_today">Hoje às %s</string>
     <string name="reminder_tomorrow">Amanhã às %s</string>
+    <string name="reminder_cancel">Cancelar lembrete</string>
 
     <string name="section_settings">Configurações de sincronização</string>
     <string name="hint_sync_interval">Intervalo de sincronização automática</string>
     <string name="hint_max_tasks">Máx. tarefas a enviar (5–30)</string>
+    <string name="hint_evening_hour">Hora da noite (0–23)</string>
+    <string name="hint_morning_hour">Hora da manhã (0–23)</string>
     <string name="hint_note_file">Ficheiro de notas por voz</string>
     <string name="helper_note_file">As notas ditadas são adicionadas aqui (criado na primeira nota).</string>
     <string name="btn_save_vault">Guardar</string>
@@ -60,8 +63,10 @@
     <string name="tab_config">Configuração</string>
     <string name="tab_sync">Sincronização</string>
 
+    <string name="section_get_app">Obter app do relógio</string>
     <string name="btn_install_watch_store">Loja Rebble</string>
-    <string name="btn_install_watch">Instalar (local)</string>
+    <string name="btn_install_watch">Instalar local</string>
+    <string name="btn_about">Sobre · GitHub</string>
     <string name="install_no_handler">App Core / Pebble não encontrada para instalar a app do relógio.</string>
     <string name="install_launched">A abrir a app Pebble para instalar a app do relógio…</string>
     <string name="install_error">Não foi possível preparar a app do relógio: %1$s</string>

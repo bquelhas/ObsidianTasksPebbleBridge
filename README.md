@@ -19,6 +19,16 @@ Sync your [Obsidian](https://obsidian.md) tasks to a Pebble smartwatch — with 
 
 ---
 
+## Screenshots
+
+| Setup | Sync |
+|---|---|
+| ![Setup tab](docs/screenshots/android_setup.png) | ![Sync tab](docs/screenshots/android_sync.png) |
+
+*Android companion app — Setup (vault, group rules, watch app install) and Sync (scheduled reminders, activity log, sync settings).*
+
+---
+
 ## Requirements
 
 | Component | Details |

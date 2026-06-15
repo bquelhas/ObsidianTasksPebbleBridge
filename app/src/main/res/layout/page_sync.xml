@@ -223,5 +223,16 @@
             app:icon="@android:drawable/stat_notify_sync"
             style="@style/Widget.Material3.Button" />
 
+        <!-- About / GitHub -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAbout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="@string/btn_about"
+            app:icon="@android:drawable/ic_menu_info_details"
+            style="@style/Widget.Material3.Button.TextButton" />
+
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

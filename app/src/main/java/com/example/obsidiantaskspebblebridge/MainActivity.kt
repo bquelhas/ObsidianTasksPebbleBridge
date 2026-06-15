@@ -374,6 +374,9 @@ class MainActivity : AppCompatActivity() {
         root.findViewById<MaterialButton>(R.id.btnSync).setOnClickListener { enviarParaPebble() }
         root.findViewById<ImageButton>(R.id.btnCopyLog).setOnClickListener { copyLog() }
         root.findViewById<ImageButton>(R.id.btnClearLog).setOnClickListener { clearLog() }
+        root.findViewById<MaterialButton>(R.id.btnAbout).setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.about_url))))
+        }
     }
 
     private fun clearLog() {

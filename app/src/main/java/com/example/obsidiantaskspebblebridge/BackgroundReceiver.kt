@@ -78,7 +78,13 @@ class BackgroundReceiver : BroadcastReceiver() {
                                 if (index < 0 || index >= tasks.size || tasks[index].isHeader) return@Thread
                                 cleanTitle(tasks[index].texto)
                             }
-                        agendarNotificacao(context, taskText, type)
+                        val triggerAt = agendarNotificacao(context, taskText, type)
+                        // Stamp the reminder's date onto the vault task (Obsidian Tasks
+                        // 📅 format) so it gains a timeline pin and the due date is
+                        // visible in Obsidian on the desktop. Re-send the list so the
+                        // pin/preview refreshes right away.
+                        val dueStr = DATE_FORMAT.format(Date(triggerAt))
+                        if (addDueDateToTask(context, taskText, dueStr)) lerObsidianEEnviar(context)
                     }
                     "DONE" -> {
                         val taskText = data.getString(93)
@@ -241,7 +247,7 @@ class BackgroundReceiver : BroadcastReceiver() {
     // `type` matches the watch-side REMIND_TYPE_* constants:
     //   0=1h  1=tonight  2=tomorrow-morning  3=+7days  10+wday=next-weekday
 
-    private fun agendarNotificacao(context: Context, taskTitle: String, type: Int) {
+    private fun agendarNotificacao(context: Context, taskTitle: String, type: Int): Long {
         val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
         val eveningHour = prefs.getInt("eveningHour", 20)
         val morningHour = prefs.getInt("morningHour", 9)
@@ -259,6 +265,51 @@ class BackgroundReceiver : BroadcastReceiver() {
         ReminderStore.add(context, alarmId, taskTitle, triggerAt)
         val diff = (triggerAt - System.currentTimeMillis()) / 1000
         sendLog(context, "Reminder in ${diff}s (type=$type) for '$taskTitle'")
+        return triggerAt
+    }
+
+    // Find the vault task matching the (clean) reminder text and write/refresh its
+    // Obsidian-Tasks due date (📅 YYYY-MM-DD). Returns true if the file changed.
+    private fun addDueDateToTask(context: Context, cleanText: String, dueStr: String): Boolean {
+        val needle = cleanText.removeSuffix("…")
+        val task = gerarListaOrdenada(context).firstOrNull {
+            if (it.isHeader) return@firstOrNull false
+            val clean = cleanTitle(it.texto)
+            clean == cleanText || (cleanText.endsWith("…") && clean.startsWith(needle)) ||
+                it.texto == cleanText
+        } ?: run { sendLog(context, "REMIND: task not found to date: '$cleanText'"); return false }
+
+        val fileUri = Uri.parse(task.caminhoFicheiro)
+        val content = context.contentResolver.openInputStream(fileUri)
+            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: run {
+            sendLog(context, "REMIND: cannot read file to date '${task.texto}'"); return false
+        }
+        var done = false
+        val modified = content.lines().joinToString("\n") { line ->
+            if (!done && line.contains("- [ ]") && line.contains(task.texto)) {
+                done = true
+                setDueDateOnLine(line, dueStr)
+            } else line
+        }
+        if (done && modified != content) {
+            context.contentResolver.openOutputStream(fileUri, "wt")
+                ?.bufferedWriter(Charsets.UTF_8)?.use { it.write(modified) }
+            TaskCache.invalidate(fileUri)
+            sendLog(context, "Reminder due date 📅 $dueStr set on '$cleanText'")
+            return true
+        }
+        return false
+    }
+
+    // Set/replace the 📅 due date on a task line. If one already exists it is
+    // updated; otherwise it is appended at the end of the line.
+    private fun setDueDateOnLine(line: String, dueStr: String): String {
+        val emojiDue = Regex("""📅\s*\d{4}-\d{2}-\d{2}""")
+        return if (emojiDue.containsMatchIn(line)) {
+            emojiDue.replace(line, "📅 $dueStr")
+        } else {
+            line.trimEnd() + " 📅 $dueStr"
+        }
     }
 
     private fun resolveReminderTime(type: Int, eveningHour: Int, morningHour: Int): Long {
