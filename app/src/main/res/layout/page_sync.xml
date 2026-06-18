@@ -10,40 +10,37 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="24dp">
 
-        <!-- Card: Log -->
+        <!-- Card: Activity log -->
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.App.CardView.NoPadding"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardCornerRadius="12dp">
+            android:layout_marginBottom="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:padding="20dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="8dp"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="0dp">
+                    android:paddingBottom="12dp">
 
                     <TextView
+                        style="@style/Widget.App.SectionLabel"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/section_log"
-                        android:textAppearance="?attr/textAppearanceLabelSmall"
-                        android:textColor="?attr/colorPrimary" />
+                        android:text="@string/section_log" />
 
                     <ImageButton
                         android:id="@+id/btnClearLog"
@@ -70,50 +67,47 @@
                 <ScrollView
                     android:id="@+id/scrollLog"
                     android:layout_width="match_parent"
-                    android:layout_height="150dp">
+                    android:layout_height="150dp"
+                    android:background="@drawable/bg_mono">
 
                     <TextView
                         android:id="@+id/txtLog"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/log_initial"
-                        android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:fontFamily="monospace"
-                        android:padding="12dp" />
+                        android:textAppearance="@style/TextAppearance.App.Mono"
+                        android:textColor="@color/vault_dark_on_surface"
+                        android:padding="16dp" />
                 </ScrollView>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Card: Configurações de sync -->
+        <!-- Card: Sync settings -->
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.App.CardView.NoPadding"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardCornerRadius="12dp">
+            android:layout_marginBottom="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
+                    style="@style/Widget.App.SectionLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/section_settings"
-                    android:textAppearance="?attr/textAppearanceLabelSmall"
-                    android:textColor="?attr/colorPrimary"
-                    android:paddingBottom="12dp" />
+                    android:paddingBottom="14dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.App.TextField.Dropdown"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    android:hint="@string/hint_sync_interval"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+                    android:hint="@string/hint_sync_interval">
 
                     <AutoCompleteTextView
                         android:id="@+id/spinnerSyncInterval"
@@ -123,11 +117,11 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.App.TextField"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    android:hint="@string/hint_max_tasks"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                    android:hint="@string/hint_max_tasks">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edtMaxTasks"
@@ -137,7 +131,6 @@
                         android:maxLength="2" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Two-column row: evening hour | morning hour -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -145,12 +138,12 @@
                     android:baselineAligned="false">
 
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.App.TextField"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginEnd="6dp"
-                        android:hint="@string/hint_evening_hour"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                        android:hint="@string/hint_evening_hour">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/edtEveningHour"
@@ -161,12 +154,12 @@
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.App.TextField"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="6dp"
-                        android:hint="@string/hint_morning_hour"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                        android:hint="@string/hint_morning_hour">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/edtMorningHour"
@@ -181,61 +174,94 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Card: Tutorial Tasker (sync automático sem abrir o Obsidian) -->
+        <!-- Card: Auto-sync without opening Obsidian (Tasker) -->
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.App.CardView.NoPadding"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardCornerRadius="12dp">
+            android:layout_marginBottom="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
+                    style="@style/Widget.App.SectionLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/section_tasker"
-                    android:textAppearance="?attr/textAppearanceLabelSmall"
-                    android:textColor="?attr/colorPrimary"
                     android:paddingBottom="12dp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/tasker_body"
-                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:text="@string/tasker_intro"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textIsSelectable="true"
-                    android:lineSpacingMultiplier="1.15" />
+                    android:paddingBottom="14dp" />
+
+                <!-- Numbered steps -->
+                <include layout="@layout/item_tasker_step"
+                    android:id="@+id/step1" />
+                <include layout="@layout/item_tasker_step"
+                    android:id="@+id/step2" />
+                <include layout="@layout/item_tasker_step"
+                    android:id="@+id/step3" />
+                <include layout="@layout/item_tasker_step"
+                    android:id="@+id/step4" />
+                <include layout="@layout/item_tasker_step"
+                    android:id="@+id/step5" />
+
+                <!-- Tip row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_tip_row"
+                    android:padding="14dp"
+                    android:layout_marginTop="8dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="12dp"
+                        android:src="@drawable/ic_lightbulb"
+                        android:contentDescription="@null"
+                        app:tint="?attr/colorPrimary" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/tasker_tip"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Botão de sync -->
+        <!-- Large primary action: Send tasks to Pebble -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSync"
+            style="@style/Widget.App.Button.Large"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:text="@string/btn_sync"
-            app:icon="@android:drawable/stat_notify_sync"
-            style="@style/Widget.Material3.Button" />
+            app:icon="@drawable/ic_tab_sync" />
 
         <!-- About / GitHub -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnAbout"
+            style="@style/Widget.App.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp"
             android:text="@string/btn_about"
-            app:icon="@android:drawable/ic_menu_info_details"
-            style="@style/Widget.Material3.Button.TextButton" />
+            app:icon="@drawable/ic_info" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

@@ -5,8 +5,8 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp">
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
 
     <ImageView
         android:id="@+id/dragHandle"
@@ -27,8 +27,9 @@
         android:hint="@string/tag_hint_tag"
         android:importantForAutofill="no"
         android:inputType="textNoSuggestions"
-        android:fontFamily="monospace"
+        android:fontFamily="@font/ibm_plex_mono"
         android:maxLines="1"
+        android:textColor="?attr/colorPrimary"
         android:textAppearance="?attr/textAppearanceBodyMedium" />
 
     <EditText
@@ -41,6 +42,7 @@
         android:importantForAutofill="no"
         android:inputType="textNoSuggestions|textCapCharacters"
         android:maxLines="1"
+        android:textColor="?attr/colorOnSurface"
         android:textAppearance="?attr/textAppearanceBodyMedium" />
 
     <ImageButton
@@ -48,7 +50,7 @@
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:padding="4dp"
-        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        android:src="@drawable/ic_clear"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/tag_delete"
         app:tint="?attr/colorOnSurfaceVariant" />

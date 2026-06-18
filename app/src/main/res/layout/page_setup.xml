@@ -10,86 +10,82 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="24dp">
 
-        <!-- Card: Get pebble app (loja Rebble ou .pbw local embutido) -->
+        <!-- Card: Get pebble app -->
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.App.CardView.NoPadding"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardCornerRadius="12dp">
+            android:layout_marginBottom="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
+                    style="@style/Widget.App.SectionLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/section_get_app"
-                    android:textAppearance="?attr/textAppearanceLabelSmall"
-                    android:textColor="?attr/colorPrimary"
-                    android:paddingBottom="12dp" />
+                    android:paddingBottom="14dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:baselineAligned="false">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnInstallWatchStore"
+                        style="@style/Widget.App.Button"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginEnd="4dp"
-                        android:text="@string/btn_install_watch_store"
-                        app:icon="@drawable/ic_shopping_bag"
-                        style="@style/Widget.Material3.Button" />
+                        android:layout_marginEnd="6dp"
+                        android:text="@string/btn_store"
+                        app:icon="@drawable/ic_shopping_bag" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnInstallWatch"
+                        style="@style/Widget.App.Button.Outlined"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="4dp"
-                        android:text="@string/btn_install_watch"
-                        app:icon="@drawable/ic_download"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        android:layout_marginStart="6dp"
+                        android:text="@string/btn_local"
+                        app:icon="@drawable/ic_download" />
 
                 </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Card: Vault -->
+        <!-- Card: Obsidian Vault -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardVault"
+            style="@style/Widget.App.CardView.NoPadding"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardCornerRadius="12dp">
+            android:layout_marginBottom="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
+                    style="@style/Widget.App.SectionLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/section_vault"
-                    android:textAppearance="?attr/textAppearanceLabelSmall"
-                    android:textColor="?attr/colorPrimary"
-                    android:paddingBottom="12dp" />
+                    android:paddingBottom="14dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -97,33 +93,42 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_marginEnd="10dp"
+                        android:src="@drawable/ic_folder_open"
+                        android:contentDescription="@string/section_vault"
+                        app:tint="?attr/colorOnSurfaceVariant" />
+
                     <TextView
                         android:id="@+id/txtVaultName"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/vault_none"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="?attr/colorOnSurface"
                         android:ellipsize="middle"
                         android:singleLine="true"
                         android:paddingEnd="12dp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnChooseFolder"
+                        style="@style/Widget.App.Button.Outlined"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/btn_choose_folder"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        android:text="@string/btn_choose_folder" />
 
                 </LinearLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.App.TextField"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:hint="@string/hint_note_file"
-                    app:helperText="@string/helper_note_file"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                    app:helperText="@string/helper_note_file">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edtNoteFile"
@@ -135,39 +140,35 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSaveVault"
+                    style="@style/Widget.App.Button"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:text="@string/btn_save_vault"
-                    app:icon="@drawable/ic_save"
-                    style="@style/Widget.Material3.Button" />
+                    app:icon="@drawable/ic_save" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Card: Regras -->
+        <!-- Card: Group rules -->
         <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.App.CardView.NoPadding"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:cardCornerRadius="12dp">
+            android:layout_marginBottom="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
 
                 <TextView
+                    style="@style/Widget.App.SectionLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/section_rules"
-                    android:textAppearance="?attr/textAppearanceLabelSmall"
-                    android:textColor="?attr/colorPrimary"
-                    android:paddingBottom="4dp" />
+                    android:paddingBottom="6dp" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -175,7 +176,7 @@
                     android:text="@string/helper_tags"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:paddingBottom="12dp" />
+                    android:paddingBottom="14dp" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rvTags"
@@ -189,7 +190,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/tags_empty"
-                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:gravity="center"
                     android:paddingTop="8dp"
@@ -200,28 +201,28 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="12dp">
+                    android:baselineAligned="false"
+                    android:layout_marginTop="10dp">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnAddTag"
+                        style="@style/Widget.App.Button.Outlined"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginEnd="4dp"
+                        android:layout_marginEnd="6dp"
                         android:text="@string/btn_add_tag"
-                        app:icon="@android:drawable/ic_input_add"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        app:icon="@drawable/ic_add" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnRescanTags"
+                        style="@style/Widget.App.Button.Outlined"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="4dp"
+                        android:layout_marginStart="6dp"
                         android:text="@string/btn_rescan_tags"
-                        app:icon="@android:drawable/ic_menu_search"
-                        style="@style/Widget.Material3.Button.OutlinedButton" />
+                        app:icon="@drawable/ic_search" />
 
                 </LinearLayout>
 

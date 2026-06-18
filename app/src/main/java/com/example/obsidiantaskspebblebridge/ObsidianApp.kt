@@ -1,16 +1,17 @@
 package com.example.obsidiantaskspebblebridge
 
 import android.app.Application
-import com.google.android.material.color.DynamicColors
+import androidx.appcompat.app.AppCompatDelegate
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class ObsidianApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Material You: tint the whole app from the system wallpaper palette on
-        // Android 12+. No-op on older devices, which keep the baseline M3 colors.
-        DynamicColors.applyToActivitiesIfAvailable(this)
+        // Vault (violet) is a fixed brand palette, so we deliberately do NOT apply
+        // Material You dynamic colors (they would override the Vault scheme with the
+        // wallpaper palette). Force dark mode — dark is the approved primary direction.
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
     }
 
     companion object {

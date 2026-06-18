@@ -1,7 +1,52 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Vault (violet) — DARK. Primary design direction. -->
     <style name="Base.Theme.ObsidianTasksPebbleBridge" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="colorPrimary">@color/vault_dark_primary</item>
+        <item name="colorOnPrimary">@color/vault_dark_on_primary</item>
+        <item name="colorPrimaryContainer">@color/vault_dark_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/vault_dark_on_primary_container</item>
+
+        <item name="colorSecondaryContainer">@color/vault_dark_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/vault_dark_on_secondary_container</item>
+
+        <item name="android:colorBackground">@color/vault_dark_surface</item>
+        <item name="colorSurface">@color/vault_dark_surface</item>
+        <item name="colorSurfaceContainer">@color/vault_dark_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/vault_dark_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/vault_dark_surface_container_highest</item>
+        <item name="colorOnSurface">@color/vault_dark_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/vault_dark_on_surface_variant</item>
+
+        <item name="colorOutline">@color/vault_dark_outline</item>
+        <item name="colorOutlineVariant">@color/vault_dark_outline_variant</item>
+
+        <item name="colorError">@color/vault_dark_error</item>
+        <item name="colorOnError">@color/vault_dark_on_error</item>
+        <item name="colorErrorContainer">@color/vault_dark_error_container</item>
+        <item name="colorOnErrorContainer">@color/vault_dark_on_error_container</item>
+
+        <item name="colorSurfaceInverse">@color/vault_dark_inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/vault_dark_inverse_on_surface</item>
+
+        <!-- Typography + component defaults (shared, see values/themes.xml). -->
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="textAppearanceDisplayLarge">@style/TextAppearance.App.DisplayLarge</item>
+        <item name="textAppearanceDisplayMedium">@style/TextAppearance.App.DisplayMedium</item>
+        <item name="textAppearanceDisplaySmall">@style/TextAppearance.App.DisplaySmall</item>
+        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.App.HeadlineLarge</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.App.HeadlineMedium</item>
+        <item name="textAppearanceHeadlineSmall">@style/TextAppearance.App.HeadlineSmall</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.App.TitleLarge</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.App.TitleMedium</item>
+        <item name="textAppearanceTitleSmall">@style/TextAppearance.App.TitleSmall</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.App.BodyLarge</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.App.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/TextAppearance.App.BodySmall</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.App.LabelLarge</item>
+        <item name="textAppearanceLabelMedium">@style/TextAppearance.App.LabelMedium</item>
+        <item name="textAppearanceLabelSmall">@style/TextAppearance.App.LabelSmall</item>
+        <item name="materialCardViewStyle">@style/Widget.App.CardView</item>
+        <item name="materialButtonStyle">@style/Widget.App.Button</item>
     </style>
 </resources>

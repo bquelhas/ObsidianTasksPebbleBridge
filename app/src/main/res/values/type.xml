@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================================
+         Typography — M3 Expressive handoff.
+         Display/Headline  → Bricolage Grotesque (expressive grotesque)
+         Title/Body/Label  → Plus Jakarta Sans
+         Monospace blocks  → IBM Plex Mono
+         ============================================================ -->
+
+    <!-- Display & Headline: Bricolage Grotesque, tight tracking -->
+    <style name="TextAppearance.App.DisplayLarge" parent="TextAppearance.Material3.DisplayLarge">
+        <item name="fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:textFontWeight">800</item>
+        <item name="android:letterSpacing">-0.025</item>
+    </style>
+    <style name="TextAppearance.App.DisplayMedium" parent="TextAppearance.Material3.DisplayMedium">
+        <item name="fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:textFontWeight">800</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+    <style name="TextAppearance.App.DisplaySmall" parent="TextAppearance.Material3.DisplaySmall">
+        <item name="fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:textFontWeight">700</item>
+        <item name="android:letterSpacing">-0.015</item>
+    </style>
+    <style name="TextAppearance.App.HeadlineLarge" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:textFontWeight">800</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+    <style name="TextAppearance.App.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:textFontWeight">700</item>
+        <item name="android:letterSpacing">-0.015</item>
+    </style>
+    <style name="TextAppearance.App.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:textFontWeight">700</item>
+        <item name="android:letterSpacing">-0.01</item>
+    </style>
+
+    <!-- Title: Plus Jakarta Sans (semibold/bold) -->
+    <style name="TextAppearance.App.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:textFontWeight">700</item>
+    </style>
+    <style name="TextAppearance.App.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:textFontWeight">600</item>
+    </style>
+    <style name="TextAppearance.App.TitleSmall" parent="TextAppearance.Material3.TitleSmall">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:textFontWeight">600</item>
+    </style>
+
+    <!-- Body: Plus Jakarta Sans (regular) -->
+    <style name="TextAppearance.App.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+    </style>
+    <style name="TextAppearance.App.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+    </style>
+    <style name="TextAppearance.App.BodySmall" parent="TextAppearance.Material3.BodySmall">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+    </style>
+
+    <!-- Label: Plus Jakarta Sans (medium/bold) -->
+    <style name="TextAppearance.App.LabelLarge" parent="TextAppearance.Material3.LabelLarge">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:textFontWeight">700</item>
+    </style>
+    <style name="TextAppearance.App.LabelMedium" parent="TextAppearance.Material3.LabelMedium">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:textFontWeight">600</item>
+    </style>
+    <style name="TextAppearance.App.LabelSmall" parent="TextAppearance.Material3.LabelSmall">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:textFontWeight">600</item>
+    </style>
+
+    <!-- Section label: 12sp / 700 / +tracking / UPPERCASE / primary.
+         (color = primary is applied at the view level via android:textColor.) -->
+    <style name="TextAppearance.App.SectionLabel" parent="TextAppearance.Material3.LabelMedium">
+        <item name="fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:fontFamily">@font/plus_jakarta_sans</item>
+        <item name="android:textFontWeight">700</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.075</item>
+    </style>
+
+    <!-- Monospace block text: IBM Plex Mono -->
+    <style name="TextAppearance.App.Mono" parent="TextAppearance.Material3.BodySmall">
+        <item name="fontFamily">@font/ibm_plex_mono</item>
+        <item name="android:fontFamily">@font/ibm_plex_mono</item>
+        <item name="android:lineSpacingMultiplier">1.25</item>
+    </style>
+</resources>

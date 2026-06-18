@@ -4,19 +4,80 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurface"
+        app:liftOnScroll="false"
+        app:elevation="0dp">
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/tabLayout"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:tabMode="fixed"
-            app:tabGravity="fill" />
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
 
+            <!-- Segmented control: pill track + sliding indicator + 3 segments -->
+            <FrameLayout
+                android:id="@+id/segmentedTabs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_segmented_track"
+                android:padding="5dp">
+
+                <View
+                    android:id="@+id/segIndicator"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_segment_indicator" />
+
+                <LinearLayout
+                    android:id="@+id/segRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/segPreview"
+                        style="@style/Widget.App.SegmentedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:checkable="true"
+                        android:text="@string/tab_preview"
+                        app:icon="@drawable/ic_tab_preview" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/segSetup"
+                        style="@style/Widget.App.SegmentedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:checkable="true"
+                        android:text="@string/tab_config"
+                        app:icon="@drawable/ic_tab_setup" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/segSync"
+                        style="@style/Widget.App.SegmentedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:checkable="true"
+                        android:text="@string/tab_sync"
+                        app:icon="@drawable/ic_tab_sync" />
+
+                </LinearLayout>
+            </FrameLayout>
+
+        </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.viewpager2.widget.ViewPager2

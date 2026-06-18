@@ -2,7 +2,56 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="md_theme_primary">#6750A4</color>
-    <color name="md_theme_on_primary">#FFFFFF</color>
-    <color name="md_theme_surface_variant">#E7E0EC</color>
+
+    <!-- Near-black terminal fill for mono blocks (task preview, log). -->
+    <color name="code_block_bg">#FF0B0A0E</color>
+
+    <!-- ============================================================
+         Vault (violet) — Material 3 color scheme. From the
+         "M3 Expressive" design handoff. Dark is the primary direction.
+         ============================================================ -->
+
+    <!-- Vault / DARK (primary) -->
+    <color name="vault_dark_primary">#CEBDFF</color>
+    <color name="vault_dark_on_primary">#371E73</color>
+    <color name="vault_dark_primary_container">#4F378B</color>
+    <color name="vault_dark_on_primary_container">#EADDFF</color>
+    <color name="vault_dark_surface">#141218</color>
+    <color name="vault_dark_surface_container">#201D24</color>
+    <color name="vault_dark_surface_container_high">#2B292F</color>
+    <color name="vault_dark_surface_container_highest">#36333A</color>
+    <color name="vault_dark_on_surface">#E6E0E9</color>
+    <color name="vault_dark_on_surface_variant">#CBC4CF</color>
+    <color name="vault_dark_outline">#948F99</color>
+    <color name="vault_dark_outline_variant">#49454E</color>
+    <color name="vault_dark_secondary_container">#473F52</color>
+    <color name="vault_dark_on_secondary_container">#E9DEF8</color>
+    <color name="vault_dark_error">#FFB4AB</color>
+    <color name="vault_dark_on_error">#690005</color>
+    <color name="vault_dark_error_container">#93000A</color>
+    <color name="vault_dark_on_error_container">#FFDAD6</color>
+    <color name="vault_dark_inverse_surface">#E6E0E9</color>
+    <color name="vault_dark_inverse_on_surface">#322F35</color>
+
+    <!-- Vault / LIGHT (for day theme) -->
+    <color name="vault_light_primary">#6B3FCE</color>
+    <color name="vault_light_on_primary">#FFFFFF</color>
+    <color name="vault_light_primary_container">#EADDFF</color>
+    <color name="vault_light_on_primary_container">#23005C</color>
+    <color name="vault_light_surface">#FDF7FF</color>
+    <color name="vault_light_surface_container">#F3ECF8</color>
+    <color name="vault_light_surface_container_high">#EDE6F3</color>
+    <color name="vault_light_surface_container_highest">#E7E0EE</color>
+    <color name="vault_light_on_surface">#1D1B20</color>
+    <color name="vault_light_on_surface_variant">#49454E</color>
+    <color name="vault_light_outline">#7A757F</color>
+    <color name="vault_light_outline_variant">#CBC4CF</color>
+    <color name="vault_light_secondary_container">#E9DEF8</color>
+    <color name="vault_light_on_secondary_container">#211A2B</color>
+    <color name="vault_light_error">#BA1A1A</color>
+    <color name="vault_light_on_error">#FFFFFF</color>
+    <color name="vault_light_error_container">#FFDAD6</color>
+    <color name="vault_light_on_error_container">#410002</color>
+    <color name="vault_light_inverse_surface">#322F35</color>
+    <color name="vault_light_inverse_on_surface">#F5EEFA</color>
 </resources>

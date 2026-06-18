@@ -39,8 +39,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.tabs.TabLayout
-import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.textfield.TextInputEditText
 import com.getpebble.android.kit.util.PebbleDictionary
 import java.util.concurrent.TimeUnit
@@ -284,7 +282,6 @@ class MainActivity : AppCompatActivity() {
     // --- ViewPager2 / tabs ---
 
     private fun setupPager() {
-        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
         val viewPager = findViewById<ViewPager2>(R.id.viewPager)
 
         viewPager.adapter = PagerAdapter { position, root ->
@@ -299,7 +296,7 @@ class MainActivity : AppCompatActivity() {
         viewPager.offscreenPageLimit = 2
 
         // Edge-to-edge: the CoordinatorLayout (fitsSystemWindows) insets the top
-        // for the tab bar; here we pad the pager's internal RecyclerView so page
+        // for the app bar; here we pad the pager's internal RecyclerView so page
         // content clears the navigation bar (and side cutouts in landscape).
         (viewPager.getChildAt(0) as? RecyclerView)?.let { inner ->
             ViewCompat.setOnApplyWindowInsetsListener(viewPager) { _, insets ->
@@ -309,16 +306,45 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        TabLayoutMediator(tabLayout, viewPager) { tab, pos ->
-            when (pos) {
-                0 -> { tab.text = getString(R.string.tab_preview); tab.setIcon(R.drawable.ic_tab_preview) }
-                1 -> { tab.text = getString(R.string.tab_config);  tab.setIcon(R.drawable.ic_tab_setup) }
-                else -> { tab.text = getString(R.string.tab_sync); tab.setIcon(R.drawable.ic_tab_sync) }
+        // Pill segmented control: 3 checkable MaterialButtons that drive the pager,
+        // plus a sliding indicator pill that tracks the swipe.
+        val segRow = findViewById<LinearLayout>(R.id.segRow)
+        val segIndicator = findViewById<View>(R.id.segIndicator)
+        val segs = listOf<MaterialButton>(
+            findViewById(R.id.segPreview),
+            findViewById(R.id.segSetup),
+            findViewById(R.id.segSync)
+        )
+        fun selectTab(pos: Int) { segs.forEachIndexed { i, b -> b.isChecked = i == pos } }
+
+        // Size the indicator to one segment width once the row has been laid out.
+        fun segWidth() = segRow.width / segs.size
+        fun moveIndicator(position: Int, offset: Float) {
+            val w = segWidth()
+            if (w == 0) return
+            if (segIndicator.width != w) {
+                segIndicator.layoutParams = segIndicator.layoutParams.apply { width = w }
+                segIndicator.requestLayout()
             }
-        }.attach()
+            segIndicator.translationX = (position + offset) * w
+        }
+        segRow.post { moveIndicator(viewPager.currentItem, 0f) }
+
+        // setCurrentItem only emits onPageSelected when the page actually changes, so
+        // re-assert the checked state here too (tapping the active pill must keep it on).
+        segs.forEachIndexed { i, b ->
+            b.setOnClickListener { viewPager.setCurrentItem(i, true); selectTab(i) }
+        }
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) = selectTab(position)
+            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
+                moveIndicator(position, positionOffset)
+            }
+        })
 
         // Preview sits left of Setup, but Setup is the entry point — open there.
         viewPager.setCurrentItem(1, false)
+        selectTab(1)
     }
 
     private fun bindPreviewPage(root: View) {
@@ -391,6 +417,21 @@ class MainActivity : AppCompatActivity() {
         edtMaxTasks         = root.findViewById(R.id.edtMaxTasks)
         edtEveningHour      = root.findViewById(R.id.edtEveningHour)
         edtMorningHour      = root.findViewById(R.id.edtMorningHour)
+
+        // Numbered Tasker steps (5 included rows: chip number + step text).
+        val steps = listOf(
+            R.id.step1 to R.string.tasker_step1,
+            R.id.step2 to R.string.tasker_step2,
+            R.id.step3 to R.string.tasker_step3,
+            R.id.step4 to R.string.tasker_step4,
+            R.id.step5 to R.string.tasker_step5
+        )
+        steps.forEachIndexed { i, (rowId, textRes) ->
+            root.findViewById<View>(rowId)?.let { row ->
+                row.findViewById<TextView>(R.id.chipNum)?.text = (i + 1).toString()
+                row.findViewById<TextView>(R.id.stepText)?.setText(textRes)
+            }
+        }
 
         edtMaxTasks?.setText(prefs.getInt("maxTasks", 20).toString())
         edtEveningHour?.setText(prefs.getInt("eveningHour", 20).toString())

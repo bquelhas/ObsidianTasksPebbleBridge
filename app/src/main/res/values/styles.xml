@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================================
+         Component styles — M3 Expressive handoff.
+         ============================================================ -->
+
+    <!-- Fully-rounded (pill) shape for buttons & the segmented track. -->
+    <style name="ShapeAppearance.App.Pill" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- Card: surfaceContainer fill, 28dp radius, no stroke, flat. Padding (20dp)
+         and inter-card gap (14dp) are set on the content/layout. -->
+    <style name="Widget.App.CardView" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">?attr/colorSurfaceContainer</item>
+        <item name="cardCornerRadius">28dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">0dp</item>
+        <item name="contentPadding">20dp</item>
+    </style>
+
+    <!-- Card variant without auto content padding (for cards that pad their own
+         header/body rows independently, e.g. Preview & Log). -->
+    <style name="Widget.App.CardView.NoPadding">
+        <item name="contentPadding">0dp</item>
+    </style>
+
+    <!-- Section label: 12sp/700/uppercase/tracked, primary color. -->
+    <style name="Widget.App.SectionLabel" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.App.SectionLabel</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+    </style>
+
+    <!-- Buttons: pill shaped. -->
+    <style name="Widget.App.Button" parent="Widget.Material3.Button">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.Pill</item>
+        <item name="android:textAppearance">@style/TextAppearance.App.LabelLarge</item>
+    </style>
+    <style name="Widget.App.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.Pill</item>
+        <item name="strokeColor">?attr/colorOutlineVariant</item>
+        <item name="strokeWidth">1.5dp</item>
+        <item name="android:textAppearance">@style/TextAppearance.App.LabelLarge</item>
+    </style>
+    <style name="Widget.App.Button.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.Pill</item>
+        <item name="android:textAppearance">@style/TextAppearance.App.LabelLarge</item>
+    </style>
+
+    <!-- Large primary action button (56dp tall pill). -->
+    <style name="Widget.App.Button.Large">
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <!-- Filled text fields (M3 filled style). -->
+    <style name="Widget.App.TextField" parent="Widget.Material3.TextInputLayout.FilledBox">
+        <item name="boxBackgroundColor">?attr/colorSurfaceContainerHighest</item>
+        <item name="boxCornerRadiusTopStart">14dp</item>
+        <item name="boxCornerRadiusTopEnd">14dp</item>
+        <item name="boxCornerRadiusBottomStart">4dp</item>
+        <item name="boxCornerRadiusBottomEnd">4dp</item>
+    </style>
+    <style name="Widget.App.TextField.Dropdown" parent="Widget.Material3.TextInputLayout.FilledBox.ExposedDropdownMenu">
+        <item name="boxBackgroundColor">?attr/colorSurfaceContainerHighest</item>
+        <item name="boxCornerRadiusTopStart">14dp</item>
+        <item name="boxCornerRadiusTopEnd">14dp</item>
+        <item name="boxCornerRadiusBottomStart">4dp</item>
+        <item name="boxCornerRadiusBottomEnd">4dp</item>
+    </style>
+
+    <!-- Segmented control (pill tabs). -->
+    <!-- The toggle group itself sits on a surfaceContainerHigh pill track. -->
+    <style name="Widget.App.SegmentedGroup" parent="Widget.Material3.MaterialButtonToggleGroup">
+        <item name="android:background">@drawable/bg_segmented_track</item>
+        <item name="singleSelection">true</item>
+        <item name="selectionRequired">true</item>
+        <item name="android:padding">5dp</item>
+    </style>
+    <!-- Each segment: transparent when unchecked, primary fill when checked. -->
+    <style name="Widget.App.SegmentedButton" parent="Widget.Material3.Button.TextButton">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.Pill</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="android:textColor">@color/segmented_button_text</item>
+        <item name="iconTint">@color/segmented_button_text</item>
+        <item name="iconPadding">6dp</item>
+        <item name="iconGravity">textStart</item>
+        <item name="android:textAppearance">@style/TextAppearance.App.LabelLarge</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:minHeight">44dp</item>
+    </style>
+
+    <!-- Numbered step chip (Tasker card): secondaryContainer circle. -->
+    <style name="Widget.App.StepChip" parent="">
+        <item name="android:background">@drawable/bg_step_chip</item>
+        <item name="android:textColor">?attr/colorOnSecondaryContainer</item>
+        <item name="android:textAppearance">@style/TextAppearance.App.LabelLarge</item>
+        <item name="android:gravity">center</item>
+        <item name="android:layout_width">28dp</item>
+        <item name="android:layout_height">28dp</item>
+    </style>
+</resources>

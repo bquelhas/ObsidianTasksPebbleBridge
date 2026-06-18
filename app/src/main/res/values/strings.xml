@@ -2,6 +2,18 @@
 <resources>
     <string name="app_name">Pebble Obsidian</string>
     <string name="app_subtitle">Pebble Bridge</string>
+    <string name="app_title">Pebble Bridge</string>
+    <string name="app_tagline">Obsidian vault → watch</string>
+    <string name="cd_app_icon">App icon</string>
+    <string name="cd_overflow">More options</string>
+
+    <string name="tasker_intro">Obsidian Sync only refreshes this phone\'s files while the Obsidian app is open. To update the watch automatically — with no PC — use an automation app like Tasker:</string>
+    <string name="tasker_step1">New Profile → Time (e.g. every 12 hours).</string>
+    <string name="tasker_step2">Task → App → Launch App: Obsidian.</string>
+    <string name="tasker_step3">Task → Wait: 30 seconds (let Obsidian Sync pull).</string>
+    <string name="tasker_step4">Task → Send Intent — Action: com.example.obsidiantaskspebblebridge.SYNC_NOW · Package: com.bquelhas.obsidiantasks · Target: Broadcast Receiver.</string>
+    <string name="tasker_step5">(Optional) Task → Go Home.</string>
+    <string name="tasker_tip">Tip: exclude Tasker and Obsidian from battery optimization, or Android may kill them.</string>
 
     <string name="section_log">Activity log</string>
     <string name="log_initial">Waiting for activity…</string>
@@ -75,6 +87,8 @@
     <string name="section_get_app">Get pebble app</string>
     <string name="btn_install_watch_store">Rebble store</string>
     <string name="btn_install_watch">Local install</string>
+    <string name="btn_store">Store</string>
+    <string name="btn_local">Local</string>
     <string name="btn_about">About · GitHub</string>
     <string name="about_url">https://github.com/bquelhas/ObsidianTasksPebbleBridge</string>
     <string name="rebble_store_url">https://apps.rebble.io/en_US/application/6a2eb7a169dd300009bf84e4</string>
