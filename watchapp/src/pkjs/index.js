@@ -57,6 +57,12 @@ function pinActions(base, lang) {
 }
 
 function putPin(id, iso, title, subtitle, code, headings, paragraphs, lang) {
+  // Defensive: the caller guards on the token, but putPin sends s_token (the global)
+  // in the header — never let a null/ERR token go out as the literal string "null".
+  if (!s_token || String(s_token).indexOf('ERR:') === 0) {
+    console.log('putPin: no usable timeline token, skipping ' + id);
+    return;
+  }
   var layout = {
     type: 'genericPin',
     title: title,

@@ -52,10 +52,12 @@
             android:name=".BackgroundReceiver"
             android:enabled="true"
             android:exported="true">
-            <intent-filter android:priority="999">
-                <action android:name="com.getpebble.action.app.RECEIVE" />
-            </intent-filter>
-            <!-- External "sync now" trigger (e.g. Tasker after opening Obsidian). -->
+            <!-- Pebble watch messages (com.getpebble.action.app.RECEIVE) are delivered
+                 to the runtime-registered receiver in PebbleBridgeService, NOT here:
+                 Android 8+ won't deliver that implicit broadcast to manifest receivers,
+                 and on Android 7 a manifest filter caused EVERY watch message to be
+                 handled twice (manifest + runtime). So this receiver only handles the
+                 explicit SYNC_NOW trigger (e.g. Tasker after opening Obsidian). -->
             <intent-filter>
                 <action android:name="com.example.obsidiantaskspebblebridge.SYNC_NOW" />
             </intent-filter>

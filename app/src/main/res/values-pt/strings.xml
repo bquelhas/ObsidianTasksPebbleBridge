@@ -33,6 +33,9 @@
     <string name="reminder_cancel">Cancelar lembrete</string>
     <string name="notif_action_done">Concluir</string>
     <string name="notif_action_snooze">Adiar 1h</string>
+    <string name="notif_channel_name">Lembretes Pebble</string>
+    <string name="notif_channel_desc">Notificações enviadas pelo relógio</string>
+    <string name="notif_reminder_title">Obsidian Tasks</string>
 
     <string name="section_tasker">Sync automático sem abrir o Obsidian</string>
     <string name="tasker_body">O Obsidian Sync só atualiza os ficheiros deste telemóvel enquanto a app Obsidian está aberta. Para atualizar o relógio automaticamente — sem PC — usa uma app de automação como o Tasker:\n\n1. Novo Perfil → Hora (ex.: a cada 12 horas).\n2. Tarefa → App → Abrir App: Obsidian.\n3. Tarefa → Esperar: 30 segundos (deixa o Obsidian Sync puxar).\n4. Tarefa → Enviar Intent:\n   • Action: com.example.obsidiantaskspebblebridge.SYNC_NOW\n   • Package: com.bquelhas.obsidiantasks\n   • Target: Broadcast Receiver\n5. (Opcional) Tarefa → Ir para o Ecrã Inicial.\n\nDica: exclui o Tasker e o Obsidian da otimização de bateria, senão o Android pode matá-los.</string>

@@ -235,17 +235,24 @@ static void load_cache() {
       char *s1 = strchr(buffer, '\x1f');
       if (s1) {
         *s1 = '\0';
+        // strncpy does NOT NUL-terminate when the source fills the buffer, so force
+        // it after every fixed-size copy or a max-length field leaks into the next read.
         strncpy(s_items[i].tag, buffer, sizeof(s_items[i].tag) - 1);
+        s_items[i].tag[sizeof(s_items[i].tag) - 1] = '\0';
         char *s2 = strchr(s1 + 1, '\x1f');
         if (s2) {
           *s2 = '\0';
           strncpy(s_items[i].due,  s1 + 1, sizeof(s_items[i].due) - 1);
+          s_items[i].due[sizeof(s_items[i].due) - 1] = '\0';
           strncpy(s_items[i].text, s2 + 1, sizeof(s_items[i].text) - 1);
+          s_items[i].text[sizeof(s_items[i].text) - 1] = '\0';
         } else {
           strncpy(s_items[i].text, s1 + 1, sizeof(s_items[i].text) - 1);
+          s_items[i].text[sizeof(s_items[i].text) - 1] = '\0';
         }
       } else {
         strncpy(s_items[i].text, buffer, sizeof(s_items[i].text) - 1);
+        s_items[i].text[sizeof(s_items[i].text) - 1] = '\0';
       }
     }
   } else {
@@ -314,6 +321,10 @@ static void save_done_list() {
     persist_write_string(PERSIST_KEY_DONE_START + i, s_done_list[i]);
 }
 
+// NOTE: matches only the first CHAR_LIMIT (100) chars. Two tasks sharing their first
+// 100 chars are indistinguishable here, so completing one could hide the other. The
+// stored text is already capped at CHAR_LIMIT, and the done-list self-prunes on each
+// sync (see filter below), so a stale hide self-corrects — acceptable trade-off.
 static bool is_done(const char *text) {
   for (int i = 0; i < s_done_count; i++)
     if (strncmp(s_done_list[i], text, CHAR_LIMIT) == 0) return true;
@@ -647,7 +658,14 @@ static void send_pin_action_to_android(int code) {
 // DONE sends task TEXT so Android can match reliably regardless of list differences
 static void send_done_to_android(const char *task_text) {
   DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) return;
+  // If the outbox is busy/full the begin fails BEFORE send, so outbox_failed_cb
+  // never fires. Without feedback the task looks done on the watch but Obsidian
+  // never hears about it — the worst silent failure. Alert + bail so the user retries.
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+    vibes_long_pulse();
+    flash_title(s_pt ? "Falha: repetir" : "Failed: retry", true);
+    return;
+  }
   dict_write_cstring(iter, KEY_ACTION,    "DONE");
   dict_write_cstring(iter, KEY_TASK_TEXT, task_text);
   app_message_outbox_send();
@@ -657,7 +675,11 @@ static void send_done_to_android(const char *task_text) {
 // correct task even though its regenerated list differs from Pebble's filtered one
 static void send_remind_to_android(const char *task_text, int delay) {
   DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) return;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+    vibes_long_pulse();
+    flash_title(s_pt ? "Falha: repetir" : "Failed: retry", true);
+    return;
+  }
   dict_write_cstring(iter, KEY_ACTION,    "REMIND");
   dict_write_cstring(iter, KEY_TASK_TEXT, task_text);
   dict_write_int(iter, KEY_DELAY, &delay, sizeof(int), true);
@@ -668,7 +690,11 @@ static void send_remind_to_android(const char *task_text, int delay) {
 // NOTE sends the dictated text; Android appends it to a predefined .md note.
 static void send_note_to_android(const char *text) {
   DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) return;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+    vibes_long_pulse();
+    flash_title(s_pt ? "Falha: repetir" : "Failed: retry", true);
+    return;
+  }
   dict_write_cstring(iter, KEY_ACTION,    "NOTE");
   dict_write_cstring(iter, KEY_TASK_TEXT, text);
   app_message_outbox_send();

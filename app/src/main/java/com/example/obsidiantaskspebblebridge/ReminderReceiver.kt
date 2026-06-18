@@ -30,10 +30,10 @@ class ReminderReceiver : BroadcastReceiver() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
                     channelId,
-                    "Lembretes Pebble",
+                    context.getString(R.string.notif_channel_name),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Notificações enviadas pelo relógio"
+                    description = context.getString(R.string.notif_channel_desc)
                     enableVibration(true)
                 }
                 notificationManager.createNotificationChannel(channel)
@@ -65,10 +65,11 @@ class ReminderReceiver : BroadcastReceiver() {
             )
 
             // 2. CONSTRUIR A NOTIFICAÇÃO
-            // Usamos android.R.drawable.ic_dialog_info porque nunca falha (ícones mipmap às vezes dão quadrado branco)
+            // Same monochrome Obsidian-gem silhouette as the foreground-service icon
+            // (transparent bg, system-tinted) — not the generic info "i".
             val builder = NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("Obsidian Tasks")
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(context.getString(R.string.notif_reminder_title))
                 .setContentText(taskText)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)

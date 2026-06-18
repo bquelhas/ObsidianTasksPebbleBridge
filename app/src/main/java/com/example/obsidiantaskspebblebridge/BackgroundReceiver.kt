@@ -37,6 +37,16 @@ class BackgroundReceiver : BroadcastReceiver() {
         // External "sync now" trigger (e.g. fired by Tasker after it opens Obsidian
         // so Obsidian Sync pulls the latest vault, then tells us to re-read + push).
         const val ACTION_SYNC_NOW = "com.example.obsidiantaskspebblebridge.SYNC_NOW"
+
+        // cleanTitle() runs for every task on every sync (thousands of calls). Compile
+        // these once instead of rebuilding the Regex objects on each invocation.
+        private val RE_DATE_EMOJI = Regex("""[📅⏳🛫➕✅]\s*\d{4}-\d{2}-\d{2}""")
+        private val RE_DUE_PAREN  = Regex("""@due\(\d{4}-\d{2}-\d{2}\)""")
+        private val RE_DUE_INLINE = Regex("""due::\s*\d{4}-\d{2}-\d{2}""")
+        private val RE_PRIO_EMOJI = Regex("""[⏫🔺🔼🔽⏬🔁]""")
+        private val RE_TAG        = Regex("""(^|\s)#[\w/\-]+""")
+        private val RE_WIKILINK   = Regex("""\[\[([^\]|]+)(\|[^\]]+)?\]\]""")
+        private val RE_WHITESPACE = Regex("""\s+""")
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -64,11 +74,11 @@ class BackgroundReceiver : BroadcastReceiver() {
             if (data.contains(1002)) {
                 val token = data.getString(1002)?.trim()
                 val pr = goAsync()
-                Thread {
+                ObsidianApp.io.execute {
                     try { handleTimelineToken(context, token) }
                     catch (e: Exception) { sendLog(context, "TL_TOKEN(1002) error: ${e.message}") }
                     finally { pr.finish() }
-                }.start()
+                }
                 return
             }
             sendLog(context, "Missing key 90 (action)."); return
@@ -77,18 +87,18 @@ class BackgroundReceiver : BroadcastReceiver() {
         sendLog(context, "Action received: '$actionKey'")
 
         val pendingResult = goAsync()
-        Thread {
+        ObsidianApp.io.execute {
             try {
                 when (actionKey) {
                     "FETCH" -> lerObsidianEEnviar(context)
                     "TL_TOKEN" -> handleTimelineToken(context, data.getString(93)?.trim())
                     "REMIND" -> {
-                        val type = data.getInteger(92)?.toInt() ?: run { sendLog(context, "REMIND: missing type"); return@Thread }
+                        val type = data.getInteger(92)?.toInt() ?: run { sendLog(context, "REMIND: missing type"); return@execute }
                         val taskText = data.getString(93)
                             ?: run {
-                                val index = data.getInteger(91)?.toInt() ?: run { sendLog(context, "REMIND: missing text and index"); return@Thread }
+                                val index = data.getInteger(91)?.toInt() ?: run { sendLog(context, "REMIND: missing text and index"); return@execute }
                                 val tasks = gerarListaOrdenada(context)
-                                if (index < 0 || index >= tasks.size || tasks[index].isHeader) return@Thread
+                                if (index < 0 || index >= tasks.size || tasks[index].isHeader) return@execute
                                 cleanTitle(tasks[index].texto)
                             }
                         val triggerAt = agendarNotificacao(context, taskText, type)
@@ -104,19 +114,19 @@ class BackgroundReceiver : BroadcastReceiver() {
                         if (taskText != null) {
                             marcarTarefaPorTexto(context, taskText)
                         } else {
-                            val index = data.getInteger(91)?.toInt() ?: run { sendLog(context, "DONE: missing text and index"); return@Thread }
+                            val index = data.getInteger(91)?.toInt() ?: run { sendLog(context, "DONE: missing text and index"); return@execute }
                             marcarTarefa(context, index)
                         }
                         lerObsidianEEnviar(context)
                     }
                     "PIN_ACT" -> {
                         val code = data.getInteger(91)?.toInt()
-                            ?: run { sendLog(context, "PIN_ACT: missing code"); return@Thread }
+                            ?: run { sendLog(context, "PIN_ACT: missing code"); return@execute }
                         handlePinAction(context, code)
                     }
                     "NOTE" -> {
                         val noteText = data.getString(93)
-                            ?: run { sendLog(context, "NOTE: missing text"); return@Thread }
+                            ?: run { sendLog(context, "NOTE: missing text"); return@execute }
                         appendVoiceNote(context, noteText)
                         // Re-read Obsidian and re-send the list so the new task comes
                         // back to the watch — that return is what clears the watch's
@@ -135,7 +145,7 @@ class BackgroundReceiver : BroadcastReceiver() {
             } finally {
                 pendingResult.finish()
             }
-        }.start()
+        }
     }
 
     /** Re-read the vault and push to the watch, off the main thread. Triggered by
@@ -143,11 +153,11 @@ class BackgroundReceiver : BroadcastReceiver() {
     private fun handleSyncNow(context: Context) {
         sendLog(context, "SYNC_NOW received (external trigger)")
         val pr = goAsync()
-        Thread {
+        ObsidianApp.io.execute {
             try { lerObsidianEEnviar(context) }
             catch (e: Exception) { sendLog(context, "SYNC_NOW error: ${e.message}") }
             finally { pr.finish() }
-        }.start()
+        }
     }
 
     // --- Log ---
@@ -277,7 +287,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         val notifId = intent.getIntExtra("NOTIF_ID", 0)
         val alarmId = intent.getIntExtra("ALARM_ID", 0)
         val pr = goAsync()
-        Thread {
+        ObsidianApp.io.execute {
             try {
                 if (alarmId != 0) ReminderStore.remove(context, alarmId)
                 marcarTarefaPorTexto(context, text)
@@ -289,7 +299,7 @@ class BackgroundReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 sendLog(context, "Notif DONE error: ${e.message}")
             } finally { pr.finish() }
-        }.start()
+        }
     }
 
     /** "Snooze 1h" tapped: reschedule the reminder for +1h and dismiss it. */
@@ -297,7 +307,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         val text = intent.getStringExtra("TASK_TEXT") ?: return
         val notifId = intent.getIntExtra("NOTIF_ID", 0)
         val pr = goAsync()
-        Thread {
+        ObsidianApp.io.execute {
             try {
                 agendarNotificacao(context, text, 0) // type 0 = +1h
                 if (notifId != 0) {
@@ -307,7 +317,7 @@ class BackgroundReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 sendLog(context, "Notif SNOOZE error: ${e.message}")
             } finally { pr.finish() }
-        }.start()
+        }
     }
 
     // --- REMIND: schedule an Android local notification ---
@@ -319,7 +329,17 @@ class BackgroundReceiver : BroadcastReceiver() {
         val eveningHour = prefs.getInt("eveningHour", 20)
         val morningHour = prefs.getInt("morningHour", 9)
         val triggerAt = resolveReminderTime(type, eveningHour, morningHour)
-        val alarmId = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
+        // Monotonic id from a persisted counter instead of a time-based value: two
+        // reminders scheduled in the same millisecond used to collide on alarmId and
+        // overwrite each other in AlarmManager + ReminderStore. Kept positive and
+        // non-zero (0 is the "no alarm" sentinel). All callers run on ObsidianApp.io
+        // (single thread), so the read-increment-write needs no extra locking.
+        val alarmId = run {
+            var next = prefs.getInt("nextAlarmId", 1)
+            if (next <= 0 || next == Int.MAX_VALUE) next = 1
+            prefs.edit().putInt("nextAlarmId", next + 1).apply()
+            next
+        }
         val intent = Intent(context, ReminderReceiver::class.java)
             .putExtra("TASK_TEXT", taskTitle)
             .putExtra("ALARM_ID", alarmId)
@@ -353,7 +373,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         }
         var done = false
         val modified = content.lines().joinToString("\n") { line ->
-            if (!done && line.contains("- [ ]") && line.contains(task.texto)) {
+            if (!done && isOpenTaskLine(line, task.texto)) {
                 done = true
                 setDueDateOnLine(line, dueStr)
             } else line
@@ -390,7 +410,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         }
         var done = false
         val modified = content.lines().joinToString("\n") { line ->
-            if (!done && line.contains("- [ ]") && line.contains(task.texto)) {
+            if (!done && isOpenTaskLine(line, task.texto)) {
                 done = true
                 setScheduledDateOnLine(line, dateStr)
             } else line
@@ -463,6 +483,13 @@ class BackgroundReceiver : BroadcastReceiver() {
 
     // --- DONE: mark task in file ---
 
+    // True when [line] is an OPEN task ("- [ ]") whose content EXACTLY equals
+    // [taskText]. Exact-match (not substring) so "Comprar pão" never hits the line
+    // "Comprar pão integral" — the old contains() match could mark/date the wrong
+    // task whenever one task's text was a prefix of another's.
+    private fun isOpenTaskLine(line: String, taskText: String): Boolean =
+        line.contains("- [ ]") && line.trim().substringAfter("- [ ]").trim() == taskText
+
     private fun marcarTarefaPorTexto(context: Context, taskText: String) {
         // The watch echoes the CLEAN title (no dates/tags), possibly truncated
         // (57 chars + "…"), so match against cleanTitle() with a prefix fallback.
@@ -491,7 +518,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         }
         var found = false
         val modified = content.lines().joinToString("\n") { line ->
-            if (!found && line.contains("- [ ]") && line.contains(task.texto)) {
+            if (!found && isOpenTaskLine(line, task.texto)) {
                 found = true
                 line.replace("- [ ]", "- [x]")
             } else line
@@ -841,13 +868,13 @@ class BackgroundReceiver : BroadcastReceiver() {
     // #tags, and [[wikilink]] brackets.
     private fun cleanTitle(texto: String): String {
         var t = texto
-        t = t.replace(Regex("""[📅⏳🛫➕✅]\s*\d{4}-\d{2}-\d{2}"""), " ")
-        t = t.replace(Regex("""@due\(\d{4}-\d{2}-\d{2}\)"""), " ")
-        t = t.replace(Regex("""due::\s*\d{4}-\d{2}-\d{2}"""), " ")
-        t = t.replace(Regex("""[⏫🔺🔼🔽⏬🔁]"""), " ")
-        t = t.replace(Regex("""(^|\s)#[\w/\-]+"""), " ")
-        t = t.replace(Regex("""\[\[([^\]|]+)(\|[^\]]+)?\]\]"""), "$1")
-        t = t.replace(Regex("""\s+"""), " ").trim()
+        t = t.replace(RE_DATE_EMOJI, " ")
+        t = t.replace(RE_DUE_PAREN, " ")
+        t = t.replace(RE_DUE_INLINE, " ")
+        t = t.replace(RE_PRIO_EMOJI, " ")
+        t = t.replace(RE_TAG, " ")
+        t = t.replace(RE_WIKILINK, "$1")
+        t = t.replace(RE_WHITESPACE, " ").trim()
         return t
     }
 

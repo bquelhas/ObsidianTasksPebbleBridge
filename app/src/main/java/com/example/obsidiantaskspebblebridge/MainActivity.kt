@@ -360,7 +360,7 @@ class MainActivity : AppCompatActivity() {
         root.findViewById<MaterialButton>(R.id.btnRescanTags).setOnClickListener { scanAndMergeTags() }
         root.findViewById<MaterialButton>(R.id.btnInstallWatchStore).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://apps.rebble.io/en_US/application/6a2eb7a169dd300009bf84e4")))
+                Uri.parse(getString(R.string.rebble_store_url))))
         }
         root.findViewById<MaterialButton>(R.id.btnInstallWatch).setOnClickListener { installWatchApp() }
         root.findViewById<MaterialButton>(R.id.btnSaveVault).setOnClickListener {

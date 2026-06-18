@@ -33,6 +33,9 @@
     <string name="reminder_cancel">Cancel reminder</string>
     <string name="notif_action_done">Done</string>
     <string name="notif_action_snooze">Snooze 1h</string>
+    <string name="notif_channel_name">Pebble reminders</string>
+    <string name="notif_channel_desc">Reminders sent from the watch</string>
+    <string name="notif_reminder_title">Obsidian Tasks</string>
 
     <string name="section_tasker">Auto-sync without opening Obsidian</string>
     <string name="tasker_body">Obsidian Sync only refreshes this phone\'s files while the Obsidian app is open. To update the watch automatically — with no PC — use an automation app like Tasker:\n\n1. New Profile → Time (e.g. every 12 hours).\n2. Task → App → Launch App: Obsidian.\n3. Task → Wait: 30 seconds (let Obsidian Sync pull).\n4. Task → Send Intent:\n   • Action: com.example.obsidiantaskspebblebridge.SYNC_NOW\n   • Package: com.bquelhas.obsidiantasks\n   • Target: Broadcast Receiver\n5. (Optional) Task → Go Home.\n\nTip: exclude Tasker and Obsidian from battery optimization, or Android may kill them.</string>
@@ -74,6 +77,7 @@
     <string name="btn_install_watch">Local install</string>
     <string name="btn_about">About · GitHub</string>
     <string name="about_url">https://github.com/bquelhas/ObsidianTasksPebbleBridge</string>
+    <string name="rebble_store_url">https://apps.rebble.io/en_US/application/6a2eb7a169dd300009bf84e4</string>
     <string name="install_no_handler">Core / Pebble app not found to install the watch app.</string>
     <string name="install_launched">Opening Pebble app to install the watch app…</string>
     <string name="install_error">Could not prepare watch app: %1$s</string>
