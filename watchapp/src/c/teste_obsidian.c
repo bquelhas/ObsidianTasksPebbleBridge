@@ -1,10 +1,42 @@
 #include <pebble.h>
 
+// Physics-based elastic easing (spring-back) function using integer lookup table
+// to avoid linking float math.h functions that exceed Pebble RAM limits (e.g. on Aplite).
+static int32_t ease_out_elastic(int32_t t) {
+  if (t <= 0) return 0;
+  if (t >= 1000) return 1000;
+  static const int32_t table[11] = { 0, 809, 1295, 1183, 962, 918, 983, 1024, 1015, 997, 1000 };
+  int idx = t / 100;
+  int rem = t % 100;
+  if (idx >= 10) return 1000;
+  return table[idx] + ((table[idx + 1] - table[idx]) * rem) / 100;
+}
+
+
+// Color interpolation for smooth details fade-in (Pebble 64-color palette compatible)
+static GColor color_interpolate(GColor c1, GColor c2, int percent) {
+  #if defined(PBL_COLOR)
+  int r = (int)c1.r + (((int)c2.r - (int)c1.r) * percent) / 100;
+  int g = (int)c1.g + (((int)c2.g - (int)c1.g) * percent) / 100;
+  int b = (int)c1.b + (((int)c2.b - (int)c1.b) * percent) / 100;
+  int a = (int)c1.a + (((int)c2.a - (int)c1.a) * percent) / 100;
+  GColor color;
+  color.r = r;
+  color.g = g;
+  color.b = b;
+  color.a = a;
+  return color;
+  #else
+  return (percent < 50) ? c1 : c2;
+  #endif
+}
+
 #define MAX_ITEMS      30
 #define CHAR_LIMIT     100
 #define MAX_DONE_LIST  20
 
 #define ROUND_MARGIN   20   // curve-safe horizontal inset for centred text on chalk
+#define ICON_ZONE      22   // right-edge width reserved for the urgency icon
 
 #define KEY_ACTION    90
 #define KEY_INDEX     91
@@ -79,6 +111,8 @@ static int  s_done_count = 0;
 static int       s_selected_row      = 0;
 static int       s_action_task_index = 0;
 static AppTimer *s_reload_timer      = NULL;
+static AppTimer *s_fade_timer        = NULL;
+static int       s_fade_progress     = 0;
 static bool      s_in_reload         = false;  // re-entrancy guard for deferred_reload
 static AppTimer *s_title_timer       = NULL;
 static char      s_title_buf[32];
@@ -235,8 +269,6 @@ static void load_cache() {
       char *s1 = strchr(buffer, '\x1f');
       if (s1) {
         *s1 = '\0';
-        // strncpy does NOT NUL-terminate when the source fills the buffer, so force
-        // it after every fixed-size copy or a max-length field leaks into the next read.
         strncpy(s_items[i].tag, buffer, sizeof(s_items[i].tag) - 1);
         s_items[i].tag[sizeof(s_items[i].tag) - 1] = '\0';
         char *s2 = strchr(s1 + 1, '\x1f');
@@ -505,40 +537,47 @@ static void fb_layer_update(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, b, 0, GCornerNone);
   graphics_context_set_antialiased(ctx, true);
 
-  int p = s_fb_progress;            // 0..100, eased by the animation curve
-  if (p < 0) p = 0; if (p > 100) p = 100;
+  int p = s_fb_progress;            // 0..1000
+  if (p < 0) p = 0; if (p > 1000) p = 1000;
 
-  // White badge disc pops in over the first ~55% with a tiny overshoot so it
-  // feels springy (a "fofa" Pebble bounce) rather than a static fade.
-  int badge_p = (p < 55) ? (p * 100 / 55) : 100;
-  int r = FB_BADGE_R * badge_p / 100;
-  if (badge_p >= 78 && badge_p < 100) r += 2;   // overshoot, then settle
+  // White badge disc pops in over the first 60% of the animation (0..600)
+  // using our physical spring function.
+  int badge_p = (p < 600) ? (p * 1000 / 600) : 1000;
+  int eased_badge_p = ease_out_elastic(badge_p);
+  int r = FB_BADGE_R * eased_badge_p / 1000;
   if (r < 1) return;
   graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_fill_circle(ctx, c, r);
 
-  // The glyph is drawn in the accent colour on top of the white badge so it
-  // reads clearly on any configured background.
+  // The glyph is drawn in the accent colour on top of the white badge.
   graphics_context_set_stroke_color(ctx, accent);
   graphics_context_set_fill_color(ctx, accent);
 
   if (s_fb_kind == 0) {
-    // Checkmark draws itself on (after the badge has mostly landed: 42..100%).
-    int cp = (p <= 42) ? 0 : (p - 42) * 100 / 58;   // 0..100
+    // Checkmark draws itself on after the badge has mostly landed (420..1000).
+    int cp = (p <= 420) ? 0 : (p - 420) * 1000 / 580;   // 0..1000
     if (cp <= 0) return;
     graphics_context_set_stroke_width(ctx, 6);
     GPoint p1 = GPoint(c.x - 17, c.y + 1);
     GPoint p2 = GPoint(c.x - 5,  c.y + 13);
     GPoint p3 = GPoint(c.x + 19, c.y - 14);
-    if (cp <= 45) {
-      int t = cp * 100 / 45;
-      graphics_draw_line(ctx, p1,
-        GPoint(p1.x + (p2.x - p1.x) * t / 100, p1.y + (p2.y - p1.y) * t / 100));
+
+    if (cp <= 450) {
+      int t = cp * 1000 / 450;
+      GPoint current_end = GPoint(p1.x + (p2.x - p1.x) * t / 1000,
+                                  p1.y + (p2.y - p1.y) * t / 1000);
+      graphics_draw_line(ctx, p1, current_end);
+      graphics_fill_circle(ctx, p1, 3);
+      graphics_fill_circle(ctx, current_end, 3);
     } else {
       graphics_draw_line(ctx, p1, p2);
-      int t = (cp - 45) * 100 / 55;
-      graphics_draw_line(ctx, p2,
-        GPoint(p2.x + (p3.x - p2.x) * t / 100, p2.y + (p3.y - p2.y) * t / 100));
+      graphics_fill_circle(ctx, p1, 3);
+      graphics_fill_circle(ctx, p2, 3);
+      int t = (cp - 450) * 1000 / 550;
+      GPoint current_end = GPoint(p2.x + (p3.x - p2.x) * t / 1000,
+                                  p2.y + (p3.y - p2.y) * t / 1000);
+      graphics_draw_line(ctx, p2, current_end);
+      graphics_fill_circle(ctx, current_end, 3);
     }
   } else {
     // Clock: ring + quarter ticks + a minute hand sweeping a full eased turn.
@@ -550,11 +589,13 @@ static void fb_layer_update(Layer *layer, GContext *ctx) {
       graphics_draw_line(ctx, fb_polar(c, FB_BADGE_R - 7, a),
                               fb_polar(c, FB_BADGE_R - 7 - len, a));
     }
-    int sweep = (p <= 42) ? 0 : (p - 42) * 100 / 58;   // 0..100 after the pop
-    int32_t mang = TRIG_MAX_ANGLE * sweep / 100;        // minute hand: full turn
+    int sweep = (p <= 420) ? 0 : (p - 420) * 1000 / 580;   // 0..1000 after the pop
+    int32_t eased_sweep = ease_out_elastic(sweep);
+    int32_t mang = TRIG_MAX_ANGLE * eased_sweep / 1000;        // minute hand: full turn
+    int32_t hang = (TRIG_MAX_ANGLE / 6) * eased_sweep / 1000;   // hour hand: to 2 o'clock
     graphics_context_set_stroke_width(ctx, 4);
     graphics_draw_line(ctx, c, fb_polar(c, FB_BADGE_R - 14, mang));
-    graphics_draw_line(ctx, c, fb_polar(c, FB_BADGE_R - 22, TRIG_MAX_ANGLE / 6)); // hour ~2 o'clock
+    graphics_draw_line(ctx, c, fb_polar(c, FB_BADGE_R - 22, hang));
     graphics_fill_circle(ctx, c, 3);
   }
 }
@@ -564,12 +605,12 @@ static void fb_close_cb(void *data) {
 }
 
 static void fb_anim_update(Animation *a, const AnimationProgress prog) {
-  s_fb_progress = (int)((int32_t)prog * 100 / ANIMATION_NORMALIZED_MAX);
+  s_fb_progress = (int)((int32_t)prog * 1000 / ANIMATION_NORMALIZED_MAX);
   if (s_fb_layer) layer_mark_dirty(s_fb_layer);
 }
 
 static void fb_anim_stopped(Animation *a, bool finished, void *ctx) {
-  s_fb_progress = 100;
+  s_fb_progress = 1000;
   if (s_fb_layer) layer_mark_dirty(s_fb_layer);
   s_fb_anim = NULL;
   app_timer_register(420, fb_close_cb, NULL);   // hold the finished frame briefly
@@ -685,6 +726,8 @@ static void send_remind_to_android(const char *task_text, int delay) {
   dict_write_int(iter, KEY_DELAY, &delay, sizeof(int), true);
   app_message_outbox_send();
 }
+
+static void deferred_reload(void *data);
 
 #if defined(PBL_MICROPHONE)
 // NOTE sends the dictated text; Android appends it to a predefined .md note.
@@ -928,6 +971,9 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *ctx) {
     }
   }
 
+
+  s_fade_progress = 100; // start details fully visible
+
   if (window_stack_get_top_window() == s_action_window) window_stack_pop(true);
   menu_layer_reload_data(s_menu_layer);
   if (s_item_count > 0)
@@ -1120,7 +1166,6 @@ static void action_window_unload(Window *window) {
 // MAIN WINDOW
 // ==============================================================
 
-#define ICON_ZONE 22   // right-edge width reserved for the urgency icon
 
 // Draw a small monochrome urgency glyph in `box` (16x16) using `color`.
 // code: 'W' warning(overdue) · 'A' alarm(<=7d) · 'C' calendar(>7d) · 'N' note(no date)
@@ -1226,30 +1271,31 @@ static void round_icon_update(Layer *layer, GContext *ctx) {
 
 static int16_t get_cell_height(MenuLayer *ml, MenuIndex *cell_index, void *ctx) {
   int row = cell_index->row;
-  if (is_voice_row(row)) return 34;          // "New note" voice row
-  if (is_pending_row(row)) return 40;        // dictated-note placeholder
-  int i = row_to_task(row);
   if (s_item_count == 0) return 60;          // empty-state cell
-  if (i >= s_item_count) return 44;
-  if (strcmp(s_items[i].tag, "HEADER") == 0) return 28;
+  
   if (s_selected_row == row) {
+    if (is_voice_row(row) || is_pending_row(row)) return 44;
+    int i = row_to_task(row);
+    if (i >= 0 && i < s_item_count) {
+      if (strcmp(s_items[i].tag, "HEADER") == 0) return 44;
 #if defined(PBL_ROUND)
-    int text_w = s_menu_w - 2 * ROUND_MARGIN;     // centred, no edge icon
-    GTextAlignment align = GTextAlignmentCenter;
+      int text_w = s_menu_w - 2 * ROUND_MARGIN;     // centred, no edge icon
+      GTextAlignment align = GTextAlignmentCenter;
 #else
-    int text_w = s_menu_w - 6 - ICON_ZONE;        // must match the draw width exactly
-    GTextAlignment align = GTextAlignmentLeft;
+      int text_w = s_menu_w - 6 - ICON_ZONE;        // must match the draw width exactly
+      GTextAlignment align = GTextAlignmentLeft;
 #endif
-    GSize size = graphics_text_layout_get_content_size(
-      s_items[i].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-      GRect(0, 0, text_w, 1000),
-      GTextOverflowModeWordWrap, align);
-    int h = size.h + 8;                       // snug top/bottom padding
-    if (s_items[i].due[0] != '\0') h += 16;   // room for the relative-due line
-    return (int16_t)((h < 44) ? 44 : h);
+      GSize size = graphics_text_layout_get_content_size(
+        s_items[i].text,
+        fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+        GRect(0, 0, text_w, 1000),
+        GTextOverflowModeWordWrap, align);
+      int h = size.h + 8;                       // snug top/bottom padding
+      if (s_items[i].due[0] != '\0') h += 16;   // room for the relative-due line
+      return (int16_t)((h < 44) ? 44 : h);
+    }
   }
-  return 44;
+  return 44; // Uniform height of 44px for all unselected cells, enabling smooth native slide animation.
 }
 
 static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
@@ -1383,6 +1429,8 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
       GRect(ROUND_MARGIN, 2, text_w, ts.h + 2),
       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
     if (s_items[i].due[0] != '\0') {
+      GColor due_color = color_interpolate(row_bg, row_fg, s_fade_progress);
+      graphics_context_set_text_color(ctx, due_color);
       graphics_draw_text(ctx, s_items[i].due,
         fonts_get_system_font(FONT_KEY_GOTHIC_14),
         GRect(ROUND_MARGIN, ts.h + 2, text_w, 16),
@@ -1414,6 +1462,8 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
       GRect(6, 2, text_w, ts.h + 2),
       GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
     if (s_items[i].due[0] != '\0') {
+      GColor due_color = color_interpolate(row_bg, row_fg, s_fade_progress);
+      graphics_context_set_text_color(ctx, due_color);
       graphics_draw_text(ctx, s_items[i].due,
         fonts_get_system_font(FONT_KEY_GOTHIC_14),
         GRect(6, ts.h + 2, text_w, 16),
@@ -1434,19 +1484,44 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
 // nested callbacks from scheduling yet another reload — otherwise the app spins
 // in an endless reload→selection_changed→reload loop (thousands of 1 ms timers
 // per second), pegging the CPU and starving AppMessage (DONE never gets sent).
+static void fade_timer_callback(void *data) {
+  s_fade_progress += 10;
+  if (s_fade_progress > 100) {
+    s_fade_progress = 100;
+    s_fade_timer = NULL;
+  } else {
+    s_fade_timer = app_timer_register(20, fade_timer_callback, NULL);
+  }
+  if (s_menu_layer) {
+    layer_mark_dirty(menu_layer_get_layer(s_menu_layer));
+  }
+}
+
 static void deferred_reload(void *data) {
   s_reload_timer = NULL;
+
+  // Reset and start fade-in animation for task details
+  s_fade_progress = 0;
+  if (s_fade_timer) {
+    app_timer_cancel(s_fade_timer);
+  }
+  s_fade_timer = app_timer_register(20, fade_timer_callback, NULL);
+
+  // Instantly expand the selected row's height
   s_in_reload = true;
   menu_layer_reload_data(s_menu_layer);
   menu_layer_set_selected_index(s_menu_layer, MenuIndex(0, s_selected_row), MenuRowAlignCenter, false);
   s_in_reload = false;
-  round_icon_refresh();
 }
 
 static void menu_selection_changed(MenuLayer *ml, MenuIndex new_idx, MenuIndex old_idx, void *ctx) {
   if (s_in_reload) return;  // ignore callbacks triggered by our own reload
   s_selected_row = new_idx.row;
   round_icon_refresh();     // top-centre icon tracks the selected row (round only)
+
+  if (s_fade_timer) { app_timer_cancel(s_fade_timer); s_fade_timer = NULL; }
+  s_fade_progress = 0;
+
   if (is_voice_row(new_idx.row) || is_pending_row(new_idx.row)) {  // head rows: nothing expands
     if (s_reload_timer) { app_timer_cancel(s_reload_timer); s_reload_timer = NULL; }
     s_reload_timer = app_timer_register(10, deferred_reload, NULL);
@@ -1467,8 +1542,11 @@ static void menu_selection_changed(MenuLayer *ml, MenuIndex new_idx, MenuIndex o
     menu_layer_set_selected_index(ml, MenuIndex(0, s_selected_row), MenuRowAlignCenter, true);
     return;
   }
+
+
+
   if (s_reload_timer) { app_timer_cancel(s_reload_timer); s_reload_timer = NULL; }
-  s_reload_timer = app_timer_register(10, deferred_reload, NULL);
+  s_reload_timer = app_timer_register(150, deferred_reload, NULL);
 }
 
 static void menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data) {
@@ -1566,8 +1644,10 @@ static void main_window_load(Window *window) {
       }
     }
     s_selected_row = sel;
+
     menu_layer_set_selected_index(s_menu_layer, MenuIndex(0, s_selected_row), MenuRowAlignCenter, false);
   }
+  s_fade_progress = 100; // start details fully visible
 }
 
 static void main_window_unload(Window *window) {
@@ -1662,6 +1742,7 @@ static void init() {
 
 static void deinit() {
   persist_write_int(PERSIST_KEY_SELECTED, s_selected_row);  // change 7
+  if (s_fade_timer) { app_timer_cancel(s_fade_timer); s_fade_timer = NULL; }
 #if defined(PBL_MICROPHONE)
   if (s_dictation) { dictation_session_destroy(s_dictation); s_dictation = NULL; }
   if (s_pending_timer) { app_timer_cancel(s_pending_timer); s_pending_timer = NULL; }
