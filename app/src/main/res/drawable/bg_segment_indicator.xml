@@ -2,6 +2,6 @@
 <!-- Sliding selected-segment pill: primary fill, fully rounded. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="?attr/colorPrimary" />
+    <solid android:color="?attr/colorPrimaryContainer" />
     <corners android:radius="100dp" />
 </shape>

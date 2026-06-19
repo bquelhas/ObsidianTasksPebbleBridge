@@ -18,23 +18,26 @@ object TaskCache {
     private val cache = HashMap<String, Entry>()
 
     /**
-     * Return the lines of [file], using the cached copy when the file's
+     * Return the lines of [uriString], using the cached copy when the file's
      * last-modified timestamp has not changed.  [readFn] is called only on
      * a cache miss and must return the fresh line list.
      */
     @Synchronized
-    fun getLines(file: DocumentFile, readFn: () -> List<String>): List<String> {
-        val key      = file.uri.toString()
-        val modified = file.lastModified()
-        val cached   = cache[key]
+    fun getLines(uriString: String, modified: Long, readFn: () -> List<String>): List<String> {
+        val cached   = cache[uriString]
         // Use cached copy only when the timestamp matches AND is non-zero
         // (SAF sometimes returns 0 for files on certain providers).
         if (cached != null && modified != 0L && cached.lastModified == modified) {
             return cached.lines
         }
         val lines = readFn()
-        if (modified != 0L) cache[key] = Entry(modified, lines)
+        if (modified != 0L) cache[uriString] = Entry(modified, lines)
         return lines
+    }
+
+    @Synchronized
+    fun getLines(file: DocumentFile, readFn: () -> List<String>): List<String> {
+        return getLines(file.uri.toString(), file.lastModified(), readFn)
     }
 
     /** Invalidate a single file (e.g. after marking a task done or saving a note). */

@@ -42,6 +42,10 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.getpebble.android.kit.util.PebbleDictionary
 import java.util.concurrent.TimeUnit
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -317,6 +321,8 @@ class MainActivity : AppCompatActivity() {
         )
         fun selectTab(pos: Int) { segs.forEachIndexed { i, b -> b.isChecked = i == pos } }
 
+        var isProgrammaticClick = false
+
         // Size the indicator to one segment width once the row has been laid out.
         fun segWidth() = segRow.width / segs.size
         fun moveIndicator(position: Int, offset: Float) {
@@ -330,15 +336,35 @@ class MainActivity : AppCompatActivity() {
         }
         segRow.post { moveIndicator(viewPager.currentItem, 0f) }
 
-        // setCurrentItem only emits onPageSelected when the page actually changes, so
-        // re-assert the checked state here too (tapping the active pill must keep it on).
         segs.forEachIndexed { i, b ->
-            b.setOnClickListener { viewPager.setCurrentItem(i, true); selectTab(i) }
+            b.setOnClickListener {
+                if (viewPager.currentItem != i) {
+                    isProgrammaticClick = true
+                    viewPager.setCurrentItem(i, true)
+                    selectTab(i)
+
+                    val targetX = i * segWidth().toFloat()
+                    android.animation.ObjectAnimator.ofFloat(segIndicator, "translationX", segIndicator.translationX, targetX).apply {
+                        duration = 350
+                        interpolator = android.view.animation.OvershootInterpolator(1.4f)
+                        addListener(object : android.animation.AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: android.animation.Animator) {
+                                isProgrammaticClick = false
+                            }
+                        })
+                    }.start()
+                }
+            }
         }
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) = selectTab(position)
             override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
-                moveIndicator(position, positionOffset)
+                if (!isProgrammaticClick) {
+                    moveIndicator(position, positionOffset)
+                    // Toggle active tab checked state at the 50% threshold of transition
+                    val closestPage = if (positionOffset < 0.5f) position else position + 1
+                    selectTab(closestPage)
+                }
             }
         })
 
@@ -389,6 +415,7 @@ class MainActivity : AppCompatActivity() {
                 Uri.parse(getString(R.string.rebble_store_url))))
         }
         root.findViewById<MaterialButton>(R.id.btnInstallWatch).setOnClickListener { installWatchApp() }
+        checkForAppUpdate(root)
         root.findViewById<MaterialButton>(R.id.btnSaveVault).setOnClickListener {
             // Explicitly persist the vault + note-file settings and confirm. The
             // vault URI is already stored on folder-pick; this also flushes the
@@ -408,6 +435,33 @@ class MainActivity : AppCompatActivity() {
             else -> updateVaultEmptyState(false, lost = true)
         }
         updateTagsEmpty()
+    }
+
+    /** Ask GitHub if a newer release of this app exists; reveal the update card if so. */
+    private fun checkForAppUpdate(root: View) {
+        val cardUpdate = root.findViewById<View>(R.id.cardUpdate) ?: return
+        val txtUpdateMsg = root.findViewById<TextView>(R.id.txtUpdateMsg)
+        val btnUpdate = root.findViewById<MaterialButton>(R.id.btnUpdate)
+        val current = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+        } catch (e: Exception) { "" }
+        if (current.isEmpty()) return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = UpdateChecker.checkForUpdate(current)
+            withContext(Dispatchers.Main) {
+                if (result != null) {
+                    txtUpdateMsg?.text =
+                        getString(R.string.update_available_msg, result.latestVersion, current)
+                    btnUpdate?.setOnClickListener {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.releaseUrl)))
+                    }
+                    cardUpdate.visibility = View.VISIBLE
+                } else {
+                    cardUpdate.visibility = View.GONE
+                }
+            }
+        }
     }
 
     private fun bindSyncPage(root: View) {
@@ -583,11 +637,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
         log(getString(R.string.tags_scanning))
-        Thread {
-            val found = try { TagScanner.scan(this, vaultUri) } catch (e: Exception) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val found = try { TagScanner.scan(this@MainActivity, vaultUri) } catch (e: Exception) {
                 emptyList()
             }
-            runOnUiThread {
+            withContext(Dispatchers.Main) {
                 val existing = tagAdapter.rules.toMutableList()
                 val have = existing.map { it.tag.trim().lowercase() }.toMutableSet()
                 for (p in found) {
@@ -604,7 +658,7 @@ class MainActivity : AppCompatActivity() {
                     else getString(R.string.tags_scan_result, found.size)
                 )
             }
-        }.start()
+        }
     }
 
     private fun setupSyncIntervalDropdown() {
@@ -774,7 +828,23 @@ class MainActivity : AppCompatActivity() {
         // pins, not Android notifications).
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED)
+            != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+        }
+
+        // Request exact alarm permission on Android 12+ (API 31+) if missing
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (!am.canScheduleExactAlarms()) {
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                        data = Uri.fromParts("package", packageName, null)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // Fallback
+                }
+            }
+        }
     }
 }

@@ -24,6 +24,8 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import android.provider.DocumentsContract
+import java.text.Normalizer
 
 class BackgroundReceiver : BroadcastReceiver() {
 
@@ -348,7 +350,11 @@ class BackgroundReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        try {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        } catch (e: SecurityException) {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        }
         ReminderStore.add(context, alarmId, taskTitle, triggerAt)
         val diff = (triggerAt - System.currentTimeMillis()) / 1000
         sendLog(context, "Reminder in ${diff}s (type=$type) for '$taskTitle'")
@@ -892,12 +898,12 @@ class BackgroundReceiver : BroadcastReceiver() {
     // --- Build sorted task list ---
 
     private fun gerarListaOrdenada(context: Context): List<ObsidianTask> {
-        val vaultDir = getVaultDir(context) ?: return emptyList()
         val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
+        val vaultUri = prefs.getString("vaultUri", null) ?: return emptyList()
         val rules = parseRules(prefs.getString("rules", "") ?: "")
         val rawTasks = mutableListOf<ObsidianTask>()
 
-        traverseDir(context, vaultDir, rules, rawTasks)
+        traverseDir(context, vaultUri, rules, rawTasks)
 
         val finalList = mutableListOf<ObsidianTask>()
         rawTasks.sortedByDescending { urgencyScore(it) * 1000 + it.prioridade }
@@ -909,42 +915,80 @@ class BackgroundReceiver : BroadcastReceiver() {
         return finalList
     }
 
-    private fun traverseDir(context: Context, dir: DocumentFile, rules: List<Rule>, out: MutableList<ObsidianTask>) {
-        dir.listFiles().forEach { file ->
-            when {
-                file.isDirectory -> {
-                    // Skip hidden folders (.trash, .obsidian, .git…) exactly like
-                    // Obsidian does — deleted notes live in .trash and must not resurface.
-                    val name = file.name ?: ""
-                    if (!name.startsWith(".")) traverseDir(context, file, rules, out)
+    private fun traverseDir(context: Context, vaultUri: String, rules: List<Rule>, out: MutableList<ObsidianTask>) {
+        val treeUri = Uri.parse(vaultUri)
+        val rootDocId = try {
+            DocumentsContract.getTreeDocumentId(treeUri)
+        } catch (e: Exception) {
+            return
+        }
+        walkDir(context, treeUri, rootDocId, rules, out)
+    }
+
+    private fun walkDir(context: Context, treeUri: Uri, dirDocId: String, rules: List<Rule>, out: MutableList<ObsidianTask>) {
+        val childrenUri = try {
+            DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, dirDocId)
+        } catch (e: Exception) {
+            return
+        }
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED
+        )
+        try {
+            context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                val modifiedCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+
+                while (cursor.moveToNext()) {
+                    val childId = cursor.getString(idCol)
+                    val childName = cursor.getString(nameCol) ?: ""
+                    val childMime = cursor.getString(mimeCol) ?: ""
+                    val lastModified = cursor.getLong(modifiedCol)
+
+                    if (childMime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                        if (!childName.startsWith(".")) {
+                            walkDir(context, treeUri, childId, rules, out)
+                        }
+                    } else if (childName.endsWith(".md")) {
+                        val fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId)
+                        readMdFile(context, fileUri, childName, lastModified, rules, out)
+                    }
                 }
-                file.name?.endsWith(".md") == true -> readMdFile(context, file, rules, out)
             }
+        } catch (_: Exception) {
+            // Query failed, ignore directory
         }
     }
 
-    private fun readMdFile(context: Context, file: DocumentFile, rules: List<Rule>, out: MutableList<ObsidianTask>) {
+    private fun readMdFile(context: Context, fileUri: Uri, fileName: String, lastModified: Long, rules: List<Rule>, out: MutableList<ObsidianTask>) {
         try {
-            val lines = TaskCache.getLines(file) {
-                context.contentResolver.openInputStream(file.uri)
+            val lines = TaskCache.getLines(fileUri.toString(), lastModified) {
+                context.contentResolver.openInputStream(fileUri)
                     ?.bufferedReader(Charsets.UTF_8)?.readLines() ?: emptyList()
             }
             lines.forEach { line ->
                 val trimmed = line.trim()
                 if (trimmed.startsWith("- [ ]")) {
                     val content = trimmed.substringAfter("- [ ]").trim()
-                    if (content.isNotEmpty()) out.add(processarTask(content, file.uri.toString(), rules))
+                    if (content.isNotEmpty()) out.add(processarTask(content, fileUri.toString(), rules))
                 }
             }
         } catch (e: Exception) {
-            sendLog(context, "Error reading ${file.name}: ${e.message}")
+            sendLog(context, "Error reading $fileName: ${e.message}")
         }
     }
 
     private fun processarTask(texto: String, uriString: String, rules: List<Rule>): ObsidianTask {
         val dueDate = extractDueDate(texto)
+        val normalizedText = Normalizer.normalize(texto, Normalizer.Form.NFC)
         for (rule in rules) {
-            if (texto.contains(rule.tag, ignoreCase = true))
+            val normalizedTag = Normalizer.normalize(rule.tag, Normalizer.Form.NFC)
+            if (normalizedText.contains(normalizedTag, ignoreCase = true))
                 return ObsidianTask(texto, rule.priority, rule.groupName, uriString, false, dueDate)
         }
         val defaultGroup = Uri.parse(uriString).lastPathSegment

@@ -17,33 +17,70 @@
         android:contentDescription="@string/tag_drag"
         app:tint="?attr/colorOnSurfaceVariant" />
 
-    <EditText
-        android:id="@+id/edtTag"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilTag"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="0.4"
         android:layout_marginStart="4dp"
         android:layout_marginEnd="4dp"
-        android:hint="@string/tag_hint_tag"
-        android:importantForAutofill="no"
-        android:inputType="textNoSuggestions"
-        android:fontFamily="@font/ibm_plex_mono"
-        android:maxLines="1"
-        android:textColor="?attr/colorPrimary"
-        android:textAppearance="?attr/textAppearanceBodyMedium" />
+        app:hintEnabled="false"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeWidth="1dp"
+        app:boxStrokeWidthFocused="1.5dp"
+        app:errorEnabled="false">
 
-    <EditText
-        android:id="@+id/edtTitle"
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edtTag"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/tag_hint_tag"
+            android:importantForAutofill="no"
+            android:inputType="textNoSuggestions"
+            android:fontFamily="@font/ibm_plex_mono"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:textColor="?attr/colorPrimary"
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilTitle"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="0.6"
         android:layout_marginEnd="4dp"
-        android:hint="@string/tag_hint_title"
-        android:importantForAutofill="no"
-        android:inputType="textNoSuggestions|textCapCharacters"
-        android:maxLines="1"
-        android:textColor="?attr/colorOnSurface"
-        android:textAppearance="?attr/textAppearanceBodyMedium" />
+        app:hintEnabled="false"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeWidth="1dp"
+        app:boxStrokeWidthFocused="1.5dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edtTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/tag_hint_title"
+            android:importantForAutofill="no"
+            android:inputType="textNoSuggestions|textCapCharacters"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:textColor="?attr/colorOnSurface"
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
+    </com.google.android.material.textfield.TextInputLayout>
 
     <ImageButton
         android:id="@+id/btnDeleteTag"

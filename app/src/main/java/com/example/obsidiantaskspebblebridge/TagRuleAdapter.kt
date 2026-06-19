@@ -14,6 +14,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.textfield.TextInputLayout
 import java.util.Collections
 
 /**
@@ -67,6 +68,7 @@ class TagRuleAdapter(
     }
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+        val tilTag: TextInputLayout = view.findViewById(R.id.tilTag)
         val edtTag: EditText = view.findViewById(R.id.edtTag)
         val edtTitle: EditText = view.findViewById(R.id.edtTitle)
         val dragHandle: ImageView = view.findViewById(R.id.dragHandle)
@@ -92,7 +94,7 @@ class TagRuleAdapter(
 
         holder.edtTag.setText(rule.tag)
         holder.edtTitle.setText(rule.title)
-        applyTagValidation(holder.edtTag, rule.tag)
+        applyTagValidation(holder.tilTag, rule.tag)
 
         holder.tagWatcher = object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
@@ -100,7 +102,7 @@ class TagRuleAdapter(
                 if (p == RecyclerView.NO_POSITION) return
                 val text = s?.toString() ?: ""
                 rules[p].tag = text
-                applyTagValidation(holder.edtTag, text)
+                applyTagValidation(holder.tilTag, text)
                 onRulesChanged?.invoke()
             }
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -146,19 +148,11 @@ class TagRuleAdapter(
     }
 
     /** A tag is valid only if it is non-blank and starts with '#'. Invalid tags
-     *  get a red underline so the problem is obvious at a glance. */
-    private fun applyTagValidation(field: EditText, tag: String) {
+     *  get a red border so the problem is obvious at a glance. */
+    private fun applyTagValidation(til: TextInputLayout, tag: String) {
         val t = tag.trim()
         val valid = t.isNotEmpty() && t.startsWith("#")
-        field.backgroundTintList =
-            if (valid) null else ColorStateList.valueOf(errorColor(field))
-    }
-
-    private fun errorColor(view: View): Int {
-        val tv = TypedValue()
-        val attr = com.google.android.material.R.attr.colorError
-        return if (view.context.theme.resolveAttribute(attr, tv, true)) tv.data
-        else 0xFFB3261E.toInt()
+        til.error = if (valid) null else " "
     }
 
     override fun getItemCount() = rules.size

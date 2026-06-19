@@ -8,10 +8,10 @@ import java.util.concurrent.Executors
 class ObsidianApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Vault (violet) is a fixed brand palette, so we deliberately do NOT apply
-        // Material You dynamic colors (they would override the Vault scheme with the
-        // wallpaper palette). Force dark mode — dark is the approved primary direction.
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        // Apply Material You dynamic colors (wallpaper-based palette)
+        com.google.android.material.color.DynamicColors.applyToActivitiesIfAvailable(this)
+        // Follow system light/dark mode setting
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
     }
 
     companion object {

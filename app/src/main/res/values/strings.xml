@@ -90,6 +90,8 @@
     <string name="btn_store">Store</string>
     <string name="btn_local">Local</string>
     <string name="btn_about">About · GitHub</string>
+    <string name="btn_update">Update</string>
+    <string name="update_available_msg">Version %1$s available · you have %2$s</string>
     <string name="about_url">https://github.com/bquelhas/ObsidianTasksPebbleBridge</string>
     <string name="rebble_store_url">https://apps.rebble.io/en_US/application/6a2eb7a169dd300009bf84e4</string>
     <string name="install_no_handler">Core / Pebble app not found to install the watch app.</string>

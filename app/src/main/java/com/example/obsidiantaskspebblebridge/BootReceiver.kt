@@ -45,6 +45,10 @@ class BootReceiver : BroadcastReceiver() {
             // failure abort the rest.
             runCatching {
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, r.triggerAt, pi)
+            }.onFailure {
+                try {
+                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, r.triggerAt, pi)
+                } catch (_: Exception) {}
             }
         }
     }
