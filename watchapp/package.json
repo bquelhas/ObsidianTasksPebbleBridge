@@ -61,12 +61,6 @@
           "name": "OBSIDIAN_TIMELINE_ICON",
           "file": "images/timeline_icon.png",
           "timelineIcon": true
-        },
-        {
-          "type": "font",
-          "name": "FONT_LECO_20",
-          "file": "fonts/LECO_2014_subset.ttf",
-          "characterRegex": "[\\u0020-\\u0060\\u007B-\\u007E\\u25AF]"
         }
       ]
     }

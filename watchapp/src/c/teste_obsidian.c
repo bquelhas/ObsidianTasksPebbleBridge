@@ -105,11 +105,13 @@ static int     s_fb_progress = 0;   // 0..FB_STEPS animation progress
 static TaskItem s_items[MAX_ITEMS];
 static int      s_item_count = 0;
 
-// Custom LECO 2014 font (group titles + open-task title). Loaded once at init;
-// falls back to a system font if it can't be loaded (e.g. aplite RAM pressure).
-static GFont    s_leco_font = NULL;
+// LECO 2014 font (group titles + open-task title). We use the *system* LECO
+// font rather than a bundled custom TTF: the Pebble Time 2 / Core Devices
+// firmware crashes on fonts_load_custom_font, and its system LECO font carries
+// a full alphabet. On older firmware the same key is numbers-only, so letters
+// fall back to tofu boxes there -- an acceptable tradeoff that avoids the crash.
 static GFont leco_font(void) {
-  return s_leco_font ? s_leco_font : fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  return fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
 }
 
 static char s_done_list[MAX_DONE_LIST][CHAR_LIMIT];
@@ -1046,6 +1048,11 @@ static void schedule_reminder(int remind_type, int task_index) {
 // scratch buffer first. Accented bytes arrive as 2-byte UTF-8 sequences (0xC3 +
 // continuation); we map the common Latin-1 set to its base uppercase letter.
 static const char *leco_upper(const char *src) {
+#if defined(PBL_PLATFORM_APLITE)
+  // aplite renders headers/titles with the Gothic fallback (no custom LECO
+  // font) and is critically RAM-tight, so skip the conversion buffer entirely.
+  return src;
+#else
   static char buf[CHAR_LIMIT];
   size_t o = 0;
   for (size_t i = 0; src[i] != '\0' && o < sizeof(buf) - 1; i++) {
@@ -1070,6 +1077,7 @@ static const char *leco_upper(const char *src) {
   }
   buf[o] = '\0';
   return buf;
+#endif
 }
 
 static uint16_t action_menu_get_num_sections(MenuLayer *ml, void *data) { return 1; }
@@ -1737,11 +1745,7 @@ static void connection_handler(bool connected) {
 
 static void init() {
   setup_strings();
-#if !defined(PBL_PLATFORM_APLITE)
-  // aplite (original Pebble, 24KB app RAM) is too memory-tight for a custom font;
-  // leave s_leco_font NULL there so leco_font() falls back to a system font.
-  s_leco_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LECO_20));
-#endif
+  // LECO is the system font (see leco_font()); nothing to load here.
   if (launch_reason() == APP_LAUNCH_TIMELINE_ACTION) {
     s_timeline_action_code = (int)launch_get_args();
     s_have_timeline_action = true;
@@ -1808,7 +1812,6 @@ static void deinit() {
   window_destroy(s_action_window);
   window_destroy(s_day_window);
   window_destroy(s_fb_window);
-  if (s_leco_font) { fonts_unload_custom_font(s_leco_font); s_leco_font = NULL; }
 }
 
 int main(void) {
