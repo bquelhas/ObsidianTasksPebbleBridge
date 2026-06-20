@@ -105,6 +105,13 @@ static int     s_fb_progress = 0;   // 0..FB_STEPS animation progress
 static TaskItem s_items[MAX_ITEMS];
 static int      s_item_count = 0;
 
+// Custom LECO 2014 font (group titles + open-task title). Loaded once at init;
+// falls back to a system font if it can't be loaded (e.g. aplite RAM pressure).
+static GFont    s_leco_font = NULL;
+static GFont leco_font(void) {
+  return s_leco_font ? s_leco_font : fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+}
+
 static char s_done_list[MAX_DONE_LIST][CHAR_LIMIT];
 static int  s_done_count = 0;
 
@@ -1033,14 +1040,46 @@ static void schedule_reminder(int remind_type, int task_index) {
 // ACTION WINDOW
 // ==============================================================
 
+// Group titles and the open-task title are drawn in the custom LECO 2014 font,
+// which is subset to UPPERCASE + digits + symbols only. So we transform the text
+// into ASCII upper-case and strip Portuguese accents (á→A, ç→C, õ→O, …) into a
+// scratch buffer first. Accented bytes arrive as 2-byte UTF-8 sequences (0xC3 +
+// continuation); we map the common Latin-1 set to its base uppercase letter.
+static const char *leco_upper(const char *src) {
+  static char buf[CHAR_LIMIT];
+  size_t o = 0;
+  for (size_t i = 0; src[i] != '\0' && o < sizeof(buf) - 1; i++) {
+    unsigned char c = (unsigned char)src[i];
+    if (c == 0xC3 && src[i + 1] != '\0') {                 // UTF-8 Latin-1 accent
+      unsigned char d = (unsigned char)src[++i];
+      char base = '\0';
+      unsigned char lo = (d >= 0xA0) ? (unsigned char)(d - 0x20) : d;  // fold to UC
+      if      (lo >= 0x80 && lo <= 0x85) base = 'A';        // À Á Â Ã Ä Å
+      else if (lo == 0x87)               base = 'C';        // Ç
+      else if (lo >= 0x88 && lo <= 0x8B) base = 'E';        // È É Ê Ë
+      else if (lo >= 0x8C && lo <= 0x8F) base = 'I';        // Ì Í Î Ï
+      else if (lo == 0x91)               base = 'N';        // Ñ
+      else if (lo >= 0x92 && lo <= 0x96) base = 'O';        // Ò Ó Ô Õ Ö
+      else if (lo >= 0x99 && lo <= 0x9C) base = 'U';        // Ù Ú Û Ü
+      else if (lo == 0x9D)               base = 'Y';        // Ý
+      if (base) buf[o++] = base;                            // else drop the char
+      continue;
+    }
+    if (c >= 'a' && c <= 'z') c = (unsigned char)(c - 'a' + 'A');
+    if (c < 0x80) buf[o++] = (char)c;                       // keep ASCII, drop other multibyte
+  }
+  buf[o] = '\0';
+  return buf;
+}
+
 static uint16_t action_menu_get_num_sections(MenuLayer *ml, void *data) { return 1; }
 static uint16_t action_menu_get_num_rows(MenuLayer *ml, uint16_t section, void *data) { return 6; }
 
 static int16_t action_menu_get_header_height(MenuLayer *ml, uint16_t section, void *data) {
   if (s_action_task_index < s_item_count) {
     GSize size = graphics_text_layout_get_content_size(
-      s_items[s_action_task_index].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+      leco_upper(s_items[s_action_task_index].text),
+      leco_font(),
       GRect(0, 0, 132, 1000),
       GTextOverflowModeWordWrap, GTextAlignmentLeft);
     int h = size.h + 14;
@@ -1056,15 +1095,15 @@ static void action_menu_draw_header(GContext *ctx, const Layer *cell_layer, uint
   graphics_context_set_fill_color(ctx, s_bg_color);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
   graphics_context_set_text_color(ctx, s_fg_color);
-  const char *task_text = (s_action_task_index < s_item_count) ? s_items[s_action_task_index].text : "";
+  const char *task_text = leco_upper((s_action_task_index < s_item_count) ? s_items[s_action_task_index].text : "");
 #if defined(PBL_ROUND)
   graphics_draw_text(ctx, task_text,
-    fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    leco_font(),
     GRect(ROUND_MARGIN, 4, bounds.size.w - 2 * ROUND_MARGIN, bounds.size.h - 6),
     GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 #else
   graphics_draw_text(ctx, task_text,
-    fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    leco_font(),
     GRect(6, 4, bounds.size.w - 8, bounds.size.h - 6),
     GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
 #endif
@@ -1073,7 +1112,18 @@ static void action_menu_draw_header(GContext *ctx, const Layer *cell_layer, uint
 }
 
 static void action_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
-  menu_cell_basic_draw(ctx, cell_layer, s_action_options[cell_index->row], NULL, NULL);
+  // Custom draw so the option rows use Gothic 18 Bold (menu_cell_basic_draw would
+  // default to Gothic 24 Bold). Highlight colour is handled manually.
+  GRect bounds = layer_get_bounds(cell_layer);
+  bool hl = menu_cell_layer_is_highlighted(cell_layer);
+  graphics_context_set_text_color(ctx, hl ? s_sel_fg : s_fg_color);
+  int th = 22;                                   // ~line height of Gothic 18 Bold
+  int y  = (bounds.size.h - th) / 2;             // vertically centred in the row
+  graphics_draw_text(ctx, s_action_options[cell_index->row],
+    fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    GRect(6, y, bounds.size.w - 12, th),
+    GTextOverflowModeTrailingEllipsis,
+    PBL_IF_ROUND_ELSE(GTextAlignmentCenter, GTextAlignmentLeft), NULL);
 }
 
 static void action_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data) {
@@ -1287,7 +1337,7 @@ static int16_t get_cell_height(MenuLayer *ml, MenuIndex *cell_index, void *ctx) 
 #endif
       GSize size = graphics_text_layout_get_content_size(
         s_items[i].text,
-        fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+        fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
         GRect(0, 0, text_w, 1000),
         GTextOverflowModeWordWrap, align);
       int h = size.h + 8;                       // snug top/bottom padding
@@ -1397,13 +1447,13 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
     graphics_draw_line(ctx, GPoint(0, 0), GPoint(bounds.size.w, 0));
     graphics_context_set_text_color(ctx, s_fg_color);
 #if defined(PBL_ROUND)
-    graphics_draw_text(ctx, s_items[i].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    graphics_draw_text(ctx, leco_upper(s_items[i].text),
+      leco_font(),
       GRect(ROUND_MARGIN, 3, bounds.size.w - 2 * ROUND_MARGIN, bounds.size.h),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 #else
-    graphics_draw_text(ctx, s_items[i].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    graphics_draw_text(ctx, leco_upper(s_items[i].text),
+      leco_font(),
       GRect(6, 3, bounds.size.w - 8, bounds.size.h),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 #endif
@@ -1422,10 +1472,10 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   int text_w = bounds.size.w - 2 * ROUND_MARGIN;
   if (is_selected) {
     GSize ts = graphics_text_layout_get_content_size(
-      s_items[i].text, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+      s_items[i].text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
       GRect(0, 0, text_w, 1000), GTextOverflowModeWordWrap, GTextAlignmentCenter);
     graphics_draw_text(ctx, s_items[i].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+      fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
       GRect(ROUND_MARGIN, 2, text_w, ts.h + 2),
       GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
     if (s_items[i].due[0] != '\0') {
@@ -1438,7 +1488,7 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
     }
   } else {
     graphics_draw_text(ctx, s_items[i].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+      fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
       GRect(ROUND_MARGIN, 4, text_w, bounds.size.h - 4),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   }
@@ -1455,10 +1505,10 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
   if (is_selected) {
     // Title (wrapped) + small relative-due line beneath it.
     GSize ts = graphics_text_layout_get_content_size(
-      s_items[i].text, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+      s_items[i].text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
       GRect(0, 0, text_w, 1000), GTextOverflowModeWordWrap, GTextAlignmentLeft);
     graphics_draw_text(ctx, s_items[i].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+      fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
       GRect(6, 2, text_w, ts.h + 2),
       GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
     if (s_items[i].due[0] != '\0') {
@@ -1471,7 +1521,7 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
     }
   } else {
     graphics_draw_text(ctx, s_items[i].text,
-      fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+      fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
       GRect(6, 4, text_w, bounds.size.h - 4),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
@@ -1687,6 +1737,11 @@ static void connection_handler(bool connected) {
 
 static void init() {
   setup_strings();
+#if !defined(PBL_PLATFORM_APLITE)
+  // aplite (original Pebble, 24KB app RAM) is too memory-tight for a custom font;
+  // leave s_leco_font NULL there so leco_font() falls back to a system font.
+  s_leco_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LECO_20));
+#endif
   if (launch_reason() == APP_LAUNCH_TIMELINE_ACTION) {
     s_timeline_action_code = (int)launch_get_args();
     s_have_timeline_action = true;
@@ -1753,6 +1808,7 @@ static void deinit() {
   window_destroy(s_action_window);
   window_destroy(s_day_window);
   window_destroy(s_fb_window);
+  if (s_leco_font) { fonts_unload_custom_font(s_leco_font); s_leco_font = NULL; }
 }
 
 int main(void) {

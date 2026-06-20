@@ -1,7 +1,7 @@
 {
   "name": "obsidian-tasks",
   "author": "bquelhas",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "keywords": [
     "pebble-app"
   ],
@@ -37,7 +37,7 @@
       "VOICE_ON": 1001,
       "TL_TOKEN": 1002
     },
-    "versionLabel": "2.0",
+    "versionLabel": "2.2",
     "resources": {
       "media": [
         {
@@ -61,6 +61,12 @@
           "name": "OBSIDIAN_TIMELINE_ICON",
           "file": "images/timeline_icon.png",
           "timelineIcon": true
+        },
+        {
+          "type": "font",
+          "name": "FONT_LECO_20",
+          "file": "fonts/LECO_2014_subset.ttf",
+          "characterRegex": "[\\u0020-\\u0060\\u007B-\\u007E\\u25AF]"
         }
       ]
     }
