@@ -166,7 +166,9 @@ class BackgroundReceiver : BroadcastReceiver() {
 
     private fun sendLog(context: Context, message: String) {
         Log.d("ObsidianBg", message)
-        context.sendBroadcast(Intent("UPDATE_LOG").putExtra("log_msg", message))
+        // setPackage keeps these app-internal: without it any installed app could
+        // listen in on log lines / the task preview (vault contents).
+        context.sendBroadcast(Intent("UPDATE_LOG").putExtra("log_msg", message).setPackage(context.packageName))
     }
 
     // Tell the watch a voice note failed to save so it can flip the "?" placeholder
@@ -255,6 +257,7 @@ class BackgroundReceiver : BroadcastReceiver() {
                 .putExtra("preview", preview)
                 .putExtra("taskCount", taskCount)
                 .putExtra("syncTime", syncTime)
+                .setPackage(context.packageName)
         )
 
         // Mirror dated tasks onto the Pebble timeline (no-op without a stored token).

@@ -21,8 +21,8 @@ android {
         applicationId = "com.bquelhas.obsidiantasks"
         minSdk = 24
         targetSdk = 36
-        versionCode = 12
-        versionName = "2.2"
+        versionCode = 13
+        versionName = "2.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -63,6 +63,10 @@ dependencies {
 
     implementation("com.getpebble:pebblekit:4.0.1")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    // Shizuku: optional adb-privilege bridge so the app can launch Obsidian in the
+    // background (even when the phone is locked) for those who have Shizuku set up.
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.2.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.recyclerview:recyclerview:1.3.2")

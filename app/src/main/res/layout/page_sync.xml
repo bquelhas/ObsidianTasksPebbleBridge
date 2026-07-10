@@ -174,7 +174,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Card: Auto-sync without opening Obsidian (Tasker) -->
+        <!-- Card: automatic vault refresh (auto-open Obsidian) -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.App.CardView.NoPadding"
             android:layout_width="match_parent"
@@ -191,28 +191,59 @@
                     style="@style/Widget.App.SectionLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/section_tasker"
+                    android:text="@string/section_auto_open"
                     android:paddingBottom="12dp" />
+
+                <!-- The app opens Obsidian itself so Obsidian Sync can pull the
+                     latest vault (needs the overlay permission). -->
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchAutoOpenObsidian"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/auto_open_obsidian"
+                    android:paddingBottom="6dp" />
+
+                <!-- How often the launch may actually happen — decoupled from the
+                     (much shorter) watch-refresh interval, which is invisible. -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilObsidianOpen"
+                    style="@style/Widget.App.TextField.Dropdown"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:hint="@string/hint_obsidian_open_freq">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/spinnerObsidianOpen"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Optional Shizuku "invisible mode": launch Obsidian in the
+                     background (even while locked) with no pop-up. -->
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchShizuku"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/shizuku_mode"
+                    android:paddingBottom="6dp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/tasker_intro"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:text="@string/shizuku_hint"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:paddingBottom="14dp" />
 
-                <!-- Numbered steps -->
-                <include layout="@layout/item_tasker_step"
-                    android:id="@+id/step1" />
-                <include layout="@layout/item_tasker_step"
-                    android:id="@+id/step2" />
-                <include layout="@layout/item_tasker_step"
-                    android:id="@+id/step3" />
-                <include layout="@layout/item_tasker_step"
-                    android:id="@+id/step4" />
-                <include layout="@layout/item_tasker_step"
-                    android:id="@+id/step5" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/auto_open_hint"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:paddingBottom="14dp" />
 
                 <!-- Tip row -->
                 <LinearLayout
@@ -234,7 +265,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/tasker_tip"
+                        android:text="@string/auto_open_tip"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 

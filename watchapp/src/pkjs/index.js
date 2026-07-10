@@ -122,12 +122,22 @@ function putPin(id, iso, title, subtitle, code, headings, paragraphs, lang) {
 }
 
 function deletePin(id) {
+  // Same token guard as putPin -- never send "null" as the header value.
+  if (!s_token || String(s_token).indexOf('ERR:') === 0) {
+    console.log('pin DELETE ' + id + ': no usable timeline token, skipping');
+    return;
+  }
   var xhr = new XMLHttpRequest();
   xhr.open('DELETE', TIMELINE_API + id);
   xhr.setRequestHeader('X-User-Token', s_token);
   xhr.onload = function() {
     console.log('pin DELETE ' + id + ' -> ' + xhr.status);
-    try { localStorage.removeItem(pinKey(id)); } catch (e) {}
+    // Only forget the pin once the server actually removed it (404 = already
+    // gone). Clearing the marker on a 5xx would orphan the pin on the timeline
+    // forever -- nothing would ever retry the delete.
+    if ((xhr.status >= 200 && xhr.status < 300) || xhr.status === 404) {
+      try { localStorage.removeItem(pinKey(id)); } catch (e) {}
+    }
   };
   xhr.onerror = function() { console.log('pin DELETE ' + id + ' error'); };
   xhr.send();

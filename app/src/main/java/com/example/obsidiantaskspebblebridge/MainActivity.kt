@@ -68,9 +68,21 @@ class MainActivity : AppCompatActivity() {
     private var edtEveningHour: TextInputEditText? = null
     private var edtMorningHour: TextInputEditText? = null
     private var cardVault: MaterialCardView? = null
+    private var switchShizuku: com.google.android.material.switchmaterial.SwitchMaterial? = null
 
     private lateinit var tagAdapter: TagRuleAdapter
     private val logBuffer = StringBuilder()
+
+    // Shizuku permission result arrives asynchronously; reflect it into the pref
+    // and the switch. Guarded so it's inert when the Shizuku service is absent.
+    private val shizukuPermListener =
+        rikka.shizuku.Shizuku.OnRequestPermissionResultListener { _, grantResult ->
+            val granted = grantResult == android.content.pm.PackageManager.PERMISSION_GRANTED
+            prefs.edit().putBoolean("useShizuku", granted).apply()
+            switchShizuku?.isChecked = granted
+            if (!granted) Toast.makeText(this, getString(R.string.shizuku_denied), Toast.LENGTH_LONG).show()
+        }
+    private val shizukuReqCode = 4321
 
     private lateinit var prefs: android.content.SharedPreferences
 
@@ -118,6 +130,8 @@ class MainActivity : AppCompatActivity() {
 
         prefs = getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
 
+        runCatching { rikka.shizuku.Shizuku.addRequestPermissionResultListener(shizukuPermListener) }
+
         // Tag rows are owned by the activity so edits survive page swipes.
         tagAdapter = TagRuleAdapter(loadTagRules().toMutableList())
         // Auto-persist tag rows on every change — no Save button needed.
@@ -135,7 +149,9 @@ class MainActivity : AppCompatActivity() {
             addAction("UPDATE_PREVIEW")
             addAction(ReminderStore.ACTION_UPDATED)
         }
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(messageReceiver, filter, Context.RECEIVER_EXPORTED)
+        // NOT_EXPORTED: every sender of these actions is this app itself (they all
+        // use setPackage), so no other app needs -- or should be able -- to deliver them.
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(messageReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else registerReceiver(messageReceiver, filter)
 
         // Watch-originated messages (DONE / REMIND / FETCH) arrive as the implicit
@@ -280,6 +296,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        runCatching { rikka.shizuku.Shizuku.removeRequestPermissionResultListener(shizukuPermListener) }
         unregisterReceiver(messageReceiver)
     }
 
@@ -472,18 +489,41 @@ class MainActivity : AppCompatActivity() {
         edtEveningHour      = root.findViewById(R.id.edtEveningHour)
         edtMorningHour      = root.findViewById(R.id.edtMorningHour)
 
-        // Numbered Tasker steps (5 included rows: chip number + step text).
-        val steps = listOf(
-            R.id.step1 to R.string.tasker_step1,
-            R.id.step2 to R.string.tasker_step2,
-            R.id.step3 to R.string.tasker_step3,
-            R.id.step4 to R.string.tasker_step4,
-            R.id.step5 to R.string.tasker_step5
-        )
-        steps.forEachIndexed { i, (rowId, textRes) ->
-            root.findViewById<View>(rowId)?.let { row ->
-                row.findViewById<TextView>(R.id.chipNum)?.text = (i + 1).toString()
-                row.findViewById<TextView>(R.id.stepText)?.setText(textRes)
+        // Auto-open-Obsidian toggle. Set the state BEFORE attaching the listener
+        // so the rebind doesn't refire it.
+        val tilObsidianOpen =
+            root.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.tilObsidianOpen)
+        switchShizuku = root.findViewById(R.id.switchShizuku)
+        setupObsidianOpenDropdown(root)
+        setupShizukuSwitch()
+        root.findViewById<com.google.android.material.switchmaterial.SwitchMaterial>(R.id.switchAutoOpenObsidian)?.let { sw ->
+            sw.isChecked = prefs.getBoolean("openObsidianBeforeSync", false)
+            tilObsidianOpen?.isEnabled = sw.isChecked
+            switchShizuku?.isEnabled = sw.isChecked
+            sw.setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean("openObsidianBeforeSync", checked).apply()
+                tilObsidianOpen?.isEnabled = checked
+                switchShizuku?.isEnabled = checked
+                if (checked && !android.provider.Settings.canDrawOverlays(this)) {
+                    // Explain WHY before bouncing the user to a scary system screen.
+                    com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.perm_overlay_title)
+                        .setMessage(R.string.perm_overlay_msg)
+                        .setPositiveButton(R.string.perm_overlay_grant) { _, _ ->
+                            startActivity(
+                                Intent(
+                                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:$packageName")
+                                )
+                            )
+                        }
+                        .setNegativeButton(R.string.perm_overlay_later) { _, _ ->
+                            // Feature can't work without the grant — turn it back off
+                            // (fires this listener again with checked=false, harmless).
+                            sw.isChecked = false
+                        }
+                        .show()
+                }
             }
         }
 
@@ -657,6 +697,59 @@ class MainActivity : AppCompatActivity() {
                     if (found.isEmpty()) getString(R.string.tags_scan_none)
                     else getString(R.string.tags_scan_result, found.size)
                 )
+            }
+        }
+    }
+
+    /** How often the auto-open may bring Obsidian to the foreground — deliberately
+     *  decoupled from the watch-refresh interval, which is invisible and cheap. */
+    private val obsidianOpenHours = listOf(1, 4, 6, 8, 12, 24)
+
+    private fun setupObsidianOpenDropdown(root: View) {
+        val spinner = root.findViewById<AutoCompleteTextView>(R.id.spinnerObsidianOpen) ?: return
+        val labels = listOf(
+            getString(R.string.open_1h), getString(R.string.open_4h), getString(R.string.open_6h),
+            getString(R.string.open_8h), getString(R.string.open_12h), getString(R.string.open_24h)
+        )
+        spinner.setAdapter(ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, labels))
+        val saved = prefs.getInt("obsidianOpenIntervalHours", 6)
+        val idx   = obsidianOpenHours.indexOf(saved).let { if (it < 0) 2 else it }
+        spinner.setText(labels[idx], false)
+        spinner.setOnItemClickListener { _, _, pos, _ ->
+            prefs.edit().putInt("obsidianOpenIntervalHours", obsidianOpenHours[pos]).apply()
+        }
+    }
+
+    /** Invisible-mode (Shizuku) toggle. Set state before wiring the listener so the
+     *  page rebind doesn't refire it. Enabling requires Shizuku running + granted. */
+    private fun setupShizukuSwitch() {
+        val sw = switchShizuku ?: return
+        sw.isChecked = prefs.getBoolean("useShizuku", false)
+        sw.setOnCheckedChangeListener { _, checked ->
+            if (!checked) {
+                prefs.edit().putBoolean("useShizuku", false).apply()
+                return@setOnCheckedChangeListener
+            }
+            when {
+                !ShizukuLauncher.isRunning() -> {
+                    com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.shizuku_title)
+                        .setMessage(R.string.shizuku_not_found)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    sw.isChecked = false
+                }
+                ShizukuLauncher.hasPermission() ->
+                    prefs.edit().putBoolean("useShizuku", true).apply()
+                else -> {
+                    // Async: shizukuPermListener applies the result to pref + switch.
+                    try {
+                        rikka.shizuku.Shizuku.requestPermission(shizukuReqCode)
+                    } catch (t: Throwable) {
+                        Toast.makeText(this, getString(R.string.shizuku_error), Toast.LENGTH_LONG).show()
+                        sw.isChecked = false
+                    }
+                }
             }
         }
     }

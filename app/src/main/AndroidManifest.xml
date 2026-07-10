@@ -11,12 +11,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- "Display over other apps": grants the background-activity-launch exemption
+         the periodic sync needs to open Obsidian (so Obsidian Sync refreshes the
+         vault) without Tasker. Only exercised when the user enables the toggle. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <queries>
         <package android:name="com.getpebble.android.basalt" />
         <package android:name="com.getpebble.android.google" />
         <package android:name="io.rebble.store" />
         <package android:name="coredevices.coreapp" />
+        <!-- Needed for getLaunchIntentForPackage on Android 11+ (package visibility). -->
+        <package android:name="md.obsidian" />
         <intent>
             <action android:name="com.getpebble.action.app.RECEIVE" />
         </intent>
@@ -72,6 +78,16 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Shizuku: lets the optional "invisible mode" talk to the Shizuku service.
+             Harmless when Shizuku isn't installed (the binder simply never connects). -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <receiver
             android:name=".ReminderReceiver"

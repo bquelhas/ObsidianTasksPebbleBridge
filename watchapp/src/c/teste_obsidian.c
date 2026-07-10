@@ -111,6 +111,18 @@ static int      s_item_count = 0;
 // a full alphabet. On older firmware the same key is numbers-only, so letters
 // fall back to tofu boxes there -- an acceptable tradeoff that avoids the crash.
 static GFont leco_font(void) {
+#if defined(SEED_TEST) && !defined(PBL_PLATFORM_APLITE)
+  // Screenshot builds only: the classic emulator firmware's system LECO key is
+  // numbers-only (letters render as tofu boxes), so load the v2.2 bundled TTF
+  // for faithful prints. Never shipped -- SEED_TEST is off in release builds.
+  static GFont s_leco_custom = NULL;
+  if (!s_leco_custom)
+    s_leco_custom = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LECO_20));
+  if (s_leco_custom) return s_leco_custom;
+#elif defined(SEED_TEST) && defined(PBL_PLATFORM_APLITE)
+  // aplite is too RAM-tight for the custom font; Gothic fallback (as v2.2 did).
+  return fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+#endif
   return fonts_get_system_font(FONT_KEY_LECO_20_BOLD_NUMBERS);
 }
 
@@ -265,6 +277,32 @@ static void save_cache() {
 }
 
 static void load_cache() {
+#ifdef SEED_TEST
+  // Screenshot-only mock data (enable with -DSEED_TEST in wscript; never ship).
+  {
+    static const struct { const char *tag; const char *due; const char *text; } seed[] = {
+      { "HEADER", "",            "Trabalho" },
+      { "W",      "ontem",       "Enviar relatorio mensal" },
+      { "A",      "amanha",      "Reuniao com a equipa" },
+      { "HEADER", "",            "Casa" },
+      { "C",      "em 12 dias",  "Pagar seguro do carro" },
+      { "N",      "",            "Comprar lampadas" },
+      { "HEADER", "",            "Obsidian" },
+      { "A",      "em 3 dias",   "Rever notas da semana" },
+      { "N",      "",            "Organizar vault" },
+    };
+    s_item_count = (int)(sizeof(seed) / sizeof(seed[0]));
+    for (int i = 0; i < s_item_count; i++) {
+      strncpy(s_items[i].tag,  seed[i].tag,  sizeof(s_items[i].tag)  - 1);
+      s_items[i].tag[sizeof(s_items[i].tag) - 1] = '\0';
+      strncpy(s_items[i].due,  seed[i].due,  sizeof(s_items[i].due)  - 1);
+      s_items[i].due[sizeof(s_items[i].due) - 1] = '\0';
+      strncpy(s_items[i].text, seed[i].text, sizeof(s_items[i].text) - 1);
+      s_items[i].text[sizeof(s_items[i].text) - 1] = '\0';
+    }
+    return;
+  }
+#endif
   if (persist_exists(PERSIST_KEY_COUNT)) {
     s_item_count = persist_read_int(PERSIST_KEY_COUNT);
     if (s_item_count > MAX_ITEMS) s_item_count = MAX_ITEMS;
@@ -662,6 +700,13 @@ static void outbox_failed_cb(DictionaryIterator *iter, AppMessageResult reason, 
   APP_LOG(APP_LOG_LEVEL_ERROR, "OUTBOX FAILED reason=%d", (int)reason);
   vibes_long_pulse();                                  // change 2: alert on failure
   flash_title(s_pt ? "Falha sync" : "Sync failed", true);
+}
+// An incoming message that overflows the inbox (or hits a BT hiccup) is dropped
+// SILENTLY by the firmware -- without this handler the list just stays stale and
+// the user has no idea why. Surface it so a re-sync (re-open / SELECT) is obvious.
+static void inbox_dropped_callback(AppMessageResult reason, void *ctx) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "INBOX DROPPED reason=%d", (int)reason);
+  flash_title(s_pt ? "Sync incompleto" : "Sync incomplete", true);
 }
 
 static void send_to_android(const char *action, int index, int delay) {
@@ -1331,8 +1376,12 @@ static int16_t get_cell_height(MenuLayer *ml, MenuIndex *cell_index, void *ctx) 
   int row = cell_index->row;
   if (s_item_count == 0) return 60;          // empty-state cell
   
+  // The voice row is a single fixed label; 44px leaves dead space under the
+  // text, so it gets a snugger height (selected or not).
+  if (is_voice_row(row)) return 36;
+
   if (s_selected_row == row) {
-    if (is_voice_row(row) || is_pending_row(row)) return 44;
+    if (is_pending_row(row)) return 44;
     int i = row_to_task(row);
     if (i >= 0 && i < s_item_count) {
       if (strcmp(s_items[i].tag, "HEADER") == 0) return 44;
@@ -1367,17 +1416,21 @@ static void menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cel
     graphics_fill_rect(ctx, bounds, 0, GCornerNone);
     GColor fg = sel ? s_sel_fg : s_fg_color;
     graphics_context_set_text_color(ctx, fg);
+    // graphics_draw_text is TOP-anchored, so centre the one-line Gothic-18
+    // label manually: its box is ~24px tall, offset (h-24)/2 puts its visual
+    // middle level with the vertically-centred mic icon.
+    int label_y = (bounds.size.h - 24) / 2;
 #if defined(PBL_ROUND)
     // Round: just the centred label — the mic shows in the top-centre icon band.
     graphics_draw_text(ctx, STR_NEWNOTE,
       fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-      GRect(ROUND_MARGIN, 0, bounds.size.w - 2 * ROUND_MARGIN, bounds.size.h),
+      GRect(ROUND_MARGIN, label_y, bounds.size.w - 2 * ROUND_MARGIN, 24),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 #else
     draw_mic_icon(ctx, GRect(6, (bounds.size.h - 16) / 2, 16, 16), fg);
     graphics_draw_text(ctx, STR_NEWNOTE,
       fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-      GRect(28, 0, bounds.size.w - 32, bounds.size.h),
+      GRect(28, label_y, bounds.size.w - 32, 24),
       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 #endif
     graphics_context_set_stroke_color(ctx, fg);
@@ -1781,6 +1834,7 @@ static void init() {
   window_stack_push(s_main_window, true);
 
   app_message_register_inbox_received(inbox_received_callback);
+  app_message_register_inbox_dropped(inbox_dropped_callback);
   app_message_register_outbox_sent(outbox_sent_cb);
   app_message_register_outbox_failed(outbox_failed_cb);
   app_message_open(4096, 2048);

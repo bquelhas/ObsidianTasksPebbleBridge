@@ -39,6 +39,29 @@ class PebbleBridgeService : Service() {
     private val pebbleReceiver = BackgroundReceiver()
     private var receiverRegistered = false
 
+    // Opportunistic Obsidian refresh: while the phone is locked Android blocks
+    // the background launch of Obsidian, so SyncWorker just reads whatever is on
+    // disk. Catch the moment the user unlocks and — if the auto-open toggle is
+    // on and the last launch is older than the sync interval — run one sync
+    // cycle right away, while the launch is actually allowed.
+    private val unlockReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != Intent.ACTION_USER_PRESENT) return
+            val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("openObsidianBeforeSync", false)) return
+            // Same throttle the worker applies: the user-chosen open frequency.
+            val intervalMs = prefs.getInt("obsidianOpenIntervalHours", 6).coerceAtLeast(1) * 3_600_000L
+            val last = prefs.getLong("lastObsidianOpenMs", 0L)
+            if (System.currentTimeMillis() - last < intervalMs) return
+            androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+                "obsidian_unlock_sync",
+                androidx.work.ExistingWorkPolicy.KEEP,
+                androidx.work.OneTimeWorkRequestBuilder<SyncWorker>().build()
+            )
+        }
+    }
+    private var unlockRegistered = false
+
     override fun onCreate() {
         super.onCreate()
 
@@ -53,6 +76,17 @@ class PebbleBridgeService : Service() {
             registerReceiver(pebbleReceiver, filter)
         }
         receiverRegistered = true
+
+        // USER_PRESENT is a protected system broadcast: NOT_EXPORTED still
+        // receives it (the flag only shuts out other apps).
+        val unlockFilter = IntentFilter(Intent.ACTION_USER_PRESENT)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(unlockReceiver, unlockFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(unlockReceiver, unlockFilter)
+        }
+        unlockRegistered = true
     }
 
     // START_STICKY: if the system kills us under memory pressure, recreate the
@@ -64,6 +98,10 @@ class PebbleBridgeService : Service() {
         if (receiverRegistered) {
             runCatching { unregisterReceiver(pebbleReceiver) }
             receiverRegistered = false
+        }
+        if (unlockRegistered) {
+            runCatching { unregisterReceiver(unlockReceiver) }
+            unlockRegistered = false
         }
     }
 

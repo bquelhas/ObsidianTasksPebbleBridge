@@ -7,13 +7,27 @@
     <string name="cd_app_icon">App icon</string>
     <string name="cd_overflow">More options</string>
 
-    <string name="tasker_intro">Obsidian Sync only refreshes this phone\'s files while the Obsidian app is open. To update the watch automatically — with no PC — use an automation app like Tasker:</string>
-    <string name="tasker_step1">New Profile → Time (e.g. every 12 hours).</string>
-    <string name="tasker_step2">Task → App → Launch App: Obsidian.</string>
-    <string name="tasker_step3">Task → Wait: 30 seconds (let Obsidian Sync pull).</string>
-    <string name="tasker_step4">Task → Send Intent — Action: com.example.obsidiantaskspebblebridge.SYNC_NOW · Package: com.bquelhas.obsidiantasks · Target: Broadcast Receiver.</string>
-    <string name="tasker_step5">(Optional) Task → Go Home.</string>
-    <string name="tasker_tip">Tip: exclude Tasker and Obsidian from battery optimization, or Android may kill them.</string>
+    <string name="section_auto_open">Automatic vault refresh</string>
+    <string name="auto_open_obsidian">Open Obsidian automatically before each sync</string>
+    <string name="auto_open_hint">The app briefly opens Obsidian so Obsidian Sync pulls the latest vault, updates the watch, then returns to the home screen. While the phone is locked Android blocks this, so it runs right after you unlock instead, at the frequency chosen above.</string>
+    <string name="perm_overlay_title">Permission needed</string>
+    <string name="perm_overlay_msg">To open Obsidian for you, Android requires the "Display over other apps" permission.\n\nOn the next screen, turn it on for this app. Nothing is ever drawn over other apps — the permission is only what lets an app launch another one from the background.\n\nWithout it the watch still updates, but only with what is already on the phone.</string>
+    <string name="perm_overlay_grant">Grant permission</string>
+    <string name="perm_overlay_later">Not now</string>
+    <string name="shizuku_mode">Invisible mode (Shizuku)</string>
+    <string name="shizuku_hint">If you have Shizuku set up, open Obsidian silently in the background — even while the phone is locked, with no pop-up. Otherwise leave this off and the visible method above is used.</string>
+    <string name="shizuku_title">Shizuku</string>
+    <string name="shizuku_not_found">Shizuku isn\'t running. Install the Shizuku app and start its service, then turn this on again.</string>
+    <string name="shizuku_denied">Shizuku permission denied — invisible mode stays off.</string>
+    <string name="shizuku_error">Couldn\'t reach Shizuku. Make sure it\'s installed and running.</string>
+    <string name="hint_obsidian_open_freq">How often to open Obsidian</string>
+    <string name="open_1h">Every hour</string>
+    <string name="open_4h">Every 4 hours</string>
+    <string name="open_6h">4× a day (every 6 h)</string>
+    <string name="open_8h">3× a day (every 8 h)</string>
+    <string name="open_12h">2× a day (every 12 h)</string>
+    <string name="open_24h">Once a day</string>
+    <string name="auto_open_tip">Tip: exclude Obsidian and this app from battery optimization, or Android may kill them.</string>
 
     <string name="section_log">Activity log</string>
     <string name="log_initial">Waiting for activity…</string>
@@ -49,8 +63,6 @@
     <string name="notif_channel_desc">Reminders sent from the watch</string>
     <string name="notif_reminder_title">Obsidian Tasks</string>
 
-    <string name="section_tasker">Auto-sync without opening Obsidian</string>
-    <string name="tasker_body">Obsidian Sync only refreshes this phone\'s files while the Obsidian app is open. To update the watch automatically — with no PC — use an automation app like Tasker:\n\n1. New Profile → Time (e.g. every 12 hours).\n2. Task → App → Launch App: Obsidian.\n3. Task → Wait: 30 seconds (let Obsidian Sync pull).\n4. Task → Send Intent:\n   • Action: com.example.obsidiantaskspebblebridge.SYNC_NOW\n   • Package: com.bquelhas.obsidiantasks\n   • Target: Broadcast Receiver\n5. (Optional) Task → Go Home.\n\nTip: exclude Tasker and Obsidian from battery optimization, or Android may kill them.</string>
     <string name="section_settings">Sync settings</string>
     <string name="hint_sync_interval">Auto-sync interval</string>
     <string name="hint_max_tasks">Max tasks to send (5–30)</string>
