@@ -42,6 +42,8 @@ static GColor color_interpolate(GColor c1, GColor c2, int percent) {
 #define KEY_INDEX     91
 #define KEY_DELAY     92
 #define KEY_TASK_TEXT 93
+#define KEY_TAG       94     // tag chosen on the watch for the ADDTAG action (watch->Android)
+#define KEY_TAGLIST   95     // tab-separated list of available tags (Android->watch)
 #define KEY_BG_COLOR  1000   // config: background colour (argb8), from Clay/Android
 #define KEY_VOICE_ON  1001   // config: show the "New note" voice row (bool), from Clay
 #define KEY_TL_TOKEN  1002   // timeline token from PebbleKit JS, relayed to Android
@@ -95,6 +97,9 @@ static MenuLayer *s_action_menu_layer;
 static Window    *s_day_window;        // "Pick a day" weekday submenu
 static MenuLayer *s_day_menu_layer;
 
+static Window    *s_tag_window;        // "Add tag" submenu
+static MenuLayer *s_tag_menu_layer;
+
 // Full-screen action-feedback overlay (Done check / Remind clock)
 static Window *s_fb_window;
 static Layer  *s_fb_layer;
@@ -129,8 +134,15 @@ static GFont leco_font(void) {
 static char s_done_list[MAX_DONE_LIST][CHAR_LIMIT];
 static int  s_done_count = 0;
 
+// Available tags for the "Add tag" action (sent by Android alongside the list).
+#define MAX_TAGS 12
+#define TAG_LEN  24
+static char s_tags[MAX_TAGS][TAG_LEN];
+static int  s_tag_count = 0;
+
 static int       s_selected_row      = 0;
 static int       s_action_task_index = 0;
+static int       s_day_mode          = 0;  // 0 = reminder weekday, 1 = due-date weekday
 static AppTimer *s_reload_timer      = NULL;
 static AppTimer *s_fade_timer        = NULL;
 static int       s_fade_progress     = 0;
@@ -192,8 +204,9 @@ static const char *STR_TITLE;
 static const char *STR_LOADING;
 static const char *STR_EMPTY;
 static const char *STR_NEWNOTE;
-static const char *s_action_options[6];
+static const char *s_action_options[9];
 static const char *s_day_options[7];   // weekday submenu (Mon..Sun)
+static const char *STR_NO_TAGS;        // shown when Android sent no tags
 
 static void setup_strings() {
   const char *locale = i18n_get_system_locale();
@@ -206,11 +219,15 @@ static void setup_strings() {
   STR_NEWNOTE        = pt ? "Nova nota"      : "New note";
 
   s_action_options[0] = pt ? "Concluir"         : "Done";
-  s_action_options[1] = pt ? "Lembrar 1h"       : "Remind 1h";
-  s_action_options[2] = pt ? "Logo à noite"     : "Tonight";
-  s_action_options[3] = pt ? "Amanhã de manhã"  : "Tomorrow morning";
-  s_action_options[4] = pt ? "Próxima semana"   : "Next week";
-  s_action_options[5] = pt ? "Escolher dia..."  : "Pick a day...";
+  s_action_options[1] = pt ? "Cancelar"         : "Cancel";
+  s_action_options[2] = pt ? "Data limite..."   : "Set due date...";
+  s_action_options[3] = pt ? "Adicionar tag..." : "Add tag...";
+  s_action_options[4] = pt ? "Lembrar 1h"       : "Remind 1h";
+  s_action_options[5] = pt ? "Logo à noite"     : "Tonight";
+  s_action_options[6] = pt ? "Amanhã de manhã"  : "Tomorrow morning";
+  s_action_options[7] = pt ? "Próxima semana"   : "Next week";
+  s_action_options[8] = pt ? "Lembrar num dia..." : "Remind on day...";
+  STR_NO_TAGS         = pt ? "Sem tags"         : "No tags";
 
   // Weekday submenu — next occurrence of each day at 09:00 (Mon..Sun).
   s_day_options[0] = pt ? "Segunda"  : "Monday";
@@ -781,6 +798,49 @@ static void send_remind_to_android(const char *task_text, int delay) {
   app_message_outbox_send();
 }
 
+// CANCEL marks the task cancelled in Obsidian ("- [x] ~~text~~") without deleting
+// it — Android owns the exact rewrite. Sends TEXT so the right line is matched.
+static void send_cancel_to_android(const char *task_text) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+    vibes_long_pulse();
+    flash_title(s_pt ? "Falha: repetir" : "Failed: retry", true);
+    return;
+  }
+  dict_write_cstring(iter, KEY_ACTION,    "CANCEL");
+  dict_write_cstring(iter, KEY_TASK_TEXT, task_text);
+  app_message_outbox_send();
+}
+
+// SETDUE stamps an Obsidian due date (📅) on the task. Reuses the reminder weekday
+// encoding (REMIND_TYPE_WDAY + wday); Android resolves the next occurrence's date.
+static void send_setdue_to_android(const char *task_text, int wday_type) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+    vibes_long_pulse();
+    flash_title(s_pt ? "Falha: repetir" : "Failed: retry", true);
+    return;
+  }
+  dict_write_cstring(iter, KEY_ACTION,    "SETDUE");
+  dict_write_cstring(iter, KEY_TASK_TEXT, task_text);
+  dict_write_int(iter, KEY_DELAY, &wday_type, sizeof(int), true);
+  app_message_outbox_send();
+}
+
+// ADDTAG appends "#tag" to the task line in Obsidian (Android dedupes/prefixes).
+static void send_addtag_to_android(const char *task_text, const char *tag) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
+    vibes_long_pulse();
+    flash_title(s_pt ? "Falha: repetir" : "Failed: retry", true);
+    return;
+  }
+  dict_write_cstring(iter, KEY_ACTION,    "ADDTAG");
+  dict_write_cstring(iter, KEY_TASK_TEXT, task_text);
+  dict_write_cstring(iter, KEY_TAG,       tag);
+  app_message_outbox_send();
+}
+
 static void deferred_reload(void *data);
 
 #if defined(PBL_MICROPHONE)
@@ -901,6 +961,25 @@ static void start_voice_note(void) {
 }
 #endif
 
+// Split a tab-separated tag list (from Android) into s_tags[], capped at MAX_TAGS.
+static void parse_tag_list(const char *list) {
+  s_tag_count = 0;
+  if (!list) return;
+  const char *p = list;
+  while (*p && s_tag_count < MAX_TAGS) {
+    const char *tab = strchr(p, '\t');
+    size_t len = tab ? (size_t)(tab - p) : strlen(p);
+    if (len > 0) {
+      if (len > TAG_LEN - 1) len = TAG_LEN - 1;
+      memcpy(s_tags[s_tag_count], p, len);
+      s_tags[s_tag_count][len] = '\0';
+      s_tag_count++;
+    }
+    if (!tab) break;
+    p = tab + 1;
+  }
+}
+
 static void inbox_received_callback(DictionaryIterator *iterator, void *ctx) {
   // Timeline token from PebbleKit JS: forward it straight to Android, nothing to
   // display. JS only runs while the app is open, so this fires on each launch.
@@ -967,8 +1046,16 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *ctx) {
   }
 #endif
 
+  // The available-tags list (for the "Add tag" action) rides along with the task
+  // list. Parse it here, but do NOT return — the same message carries the tasks.
+  Tuple *t_taglist = dict_find(iterator, KEY_TAGLIST);
+  if (t_taglist && t_taglist->type == TUPLE_CSTRING)
+    parse_tag_list(t_taglist->value->cstring);
+
   Tuple *t_first = dict_read_first(iterator);
   if (!t_first || t_first->key < 10) return;
+  // Guard: a tags-only message (key 95, no key 10) must not wipe the task list.
+  if (!dict_find(iterator, 10)) return;
 
   // Build new list into global buffer (local array would overflow Pebble stack)
   int new_count = 0;
@@ -1126,7 +1213,7 @@ static const char *leco_upper(const char *src) {
 }
 
 static uint16_t action_menu_get_num_sections(MenuLayer *ml, void *data) { return 1; }
-static uint16_t action_menu_get_num_rows(MenuLayer *ml, uint16_t section, void *data) { return 6; }
+static uint16_t action_menu_get_num_rows(MenuLayer *ml, uint16_t section, void *data) { return 9; }
 
 static int16_t action_menu_get_header_height(MenuLayer *ml, uint16_t section, void *data) {
   if (s_action_task_index < s_item_count) {
@@ -1180,26 +1267,39 @@ static void action_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuInd
 }
 
 static void action_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data) {
-  if (cell_index->row == 0) {
-    // Done — copy text before remove_item shifts the array
-    char done_text[CHAR_LIMIT];
-    strncpy(done_text, s_items[s_action_task_index].text, CHAR_LIMIT - 1);
-    done_text[CHAR_LIMIT - 1] = '\0';
-    add_to_done_list(done_text);
+  // Rows 0/1 remove the task from the watch (Done / Cancel); both copy the text
+  // first because remove_item shifts the array. Cancel differs only in the action
+  // sent to Android (which rewrites the line as cancelled instead of done).
+  if (cell_index->row == 0 || cell_index->row == 1) {
+    char task_text[CHAR_LIMIT];
+    strncpy(task_text, s_items[s_action_task_index].text, CHAR_LIMIT - 1);
+    task_text[CHAR_LIMIT - 1] = '\0';
+    add_to_done_list(task_text);
     remove_item(s_action_task_index);
-    send_done_to_android(done_text);
+    if (cell_index->row == 0) send_done_to_android(task_text);
+    else                      send_cancel_to_android(task_text);
     menu_layer_reload_data(s_menu_layer);
     window_stack_remove(s_action_window, false);
     show_feedback(0);   // ✓ check animation (also pulses once)
     return;
   }
   switch (cell_index->row) {
-    case 1: schedule_reminder(REMIND_TYPE_1H,      s_action_task_index); break;
-    case 2: schedule_reminder(REMIND_TYPE_TONIGHT, s_action_task_index); break;
-    case 3: schedule_reminder(REMIND_TYPE_MORNING, s_action_task_index); break;
-    case 4: schedule_reminder(REMIND_TYPE_WEEK,    s_action_task_index); break;
-    case 5:
-      // Escolher dia — abre o submenu; só fecha/feedback depois de escolher o dia.
+    case 2:
+      // Set due date — pick a weekday (due-date mode), then Android stamps 📅.
+      s_day_mode = 1;
+      window_stack_push(s_day_window, true);
+      return;
+    case 3:
+      // Add tag — open the tag submenu (populated from the last sync).
+      window_stack_push(s_tag_window, true);
+      return;
+    case 4: schedule_reminder(REMIND_TYPE_1H,      s_action_task_index); break;
+    case 5: schedule_reminder(REMIND_TYPE_TONIGHT, s_action_task_index); break;
+    case 6: schedule_reminder(REMIND_TYPE_MORNING, s_action_task_index); break;
+    case 7: schedule_reminder(REMIND_TYPE_WEEK,    s_action_task_index); break;
+    case 8:
+      // Remind on a weekday — reminder mode; feedback fires after the day is picked.
+      s_day_mode = 0;
       window_stack_push(s_day_window, true);
       return;
   }
@@ -1219,7 +1319,15 @@ static void day_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data) {
   // Rows 0..6 = Monday..Sunday → wday 1,2,3,4,5,6,0.
   // Type = REMIND_TYPE_WDAY + wday; Android resolves the actual next occurrence.
   static const int row_to_wday[7] = { 1, 2, 3, 4, 5, 6, 0 };
-  schedule_reminder(REMIND_TYPE_WDAY + row_to_wday[cell_index->row], s_action_task_index);
+  int wday_type = REMIND_TYPE_WDAY + row_to_wday[cell_index->row];
+  if (s_day_mode == 1) {
+    // Due-date mode: stamp 📅 on the task instead of scheduling a reminder.
+    if (s_action_task_index >= 0 && s_action_task_index < s_item_count &&
+        strcmp(s_items[s_action_task_index].tag, "HEADER") != 0)
+      send_setdue_to_android(s_items[s_action_task_index].text, wday_type);
+  } else {
+    schedule_reminder(wday_type, s_action_task_index);
+  }
   window_stack_remove(s_day_window, false);
   window_stack_remove(s_action_window, false);
   show_feedback(1);     // clock animation
@@ -1242,6 +1350,46 @@ static void day_window_load(Window *window) {
 
 static void day_window_unload(Window *window) {
   menu_layer_destroy(s_day_menu_layer);
+}
+
+// --- Tag submenu ("Add tag") ---
+
+static uint16_t tag_menu_get_num_rows(MenuLayer *ml, uint16_t section, void *data) {
+  return s_tag_count > 0 ? s_tag_count : 1;   // one row for the "No tags" placeholder
+}
+
+static void tag_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
+  const char *label = (s_tag_count > 0) ? s_tags[cell_index->row] : STR_NO_TAGS;
+  menu_cell_basic_draw(ctx, cell_layer, label, NULL, NULL);
+}
+
+static void tag_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data) {
+  if (s_tag_count == 0) { window_stack_remove(s_tag_window, false); return; }
+  if (s_action_task_index >= 0 && s_action_task_index < s_item_count &&
+      strcmp(s_items[s_action_task_index].tag, "HEADER") != 0)
+    send_addtag_to_android(s_items[s_action_task_index].text, s_tags[cell_index->row]);
+  window_stack_remove(s_tag_window, false);
+  window_stack_remove(s_action_window, false);
+  show_feedback(0);     // ✓ check animation
+}
+
+static void tag_window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  s_tag_menu_layer = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_tag_menu_layer, NULL, (MenuLayerCallbacks){
+    .get_num_sections = action_menu_get_num_sections,
+    .get_num_rows     = tag_menu_get_num_rows,
+    .draw_row         = tag_menu_draw_row,
+    .select_click     = tag_menu_select,
+  });
+  menu_layer_set_normal_colors(s_tag_menu_layer, s_bg_color, s_fg_color);
+  menu_layer_set_highlight_colors(s_tag_menu_layer, s_sel_bg, s_sel_fg);
+  menu_layer_set_click_config_onto_window(s_tag_menu_layer, window);
+  layer_add_child(root, menu_layer_get_layer(s_tag_menu_layer));
+}
+
+static void tag_window_unload(Window *window) {
+  menu_layer_destroy(s_tag_menu_layer);
 }
 
 static void action_window_load(Window *window) {
@@ -1831,6 +1979,11 @@ static void init() {
     .load = day_window_load, .unload = day_window_unload
   });
 
+  s_tag_window = window_create();
+  window_set_window_handlers(s_tag_window, (WindowHandlers){
+    .load = tag_window_load, .unload = tag_window_unload
+  });
+
   window_stack_push(s_main_window, true);
 
   app_message_register_inbox_received(inbox_received_callback);
@@ -1865,6 +2018,7 @@ static void deinit() {
   window_destroy(s_main_window);
   window_destroy(s_action_window);
   window_destroy(s_day_window);
+  window_destroy(s_tag_window);
   window_destroy(s_fb_window);
 }
 

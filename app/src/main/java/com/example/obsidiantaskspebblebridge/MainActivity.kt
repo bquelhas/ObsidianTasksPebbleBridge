@@ -408,6 +408,21 @@ class MainActivity : AppCompatActivity() {
         rvTags        = root.findViewById(R.id.rvTags)
         edtNoteFile   = root.findViewById(R.id.edtNoteFile)
 
+        // Keyboard-covers-content fix (issue #2): the page is a NestedScrollView, but
+        // with edge-to-edge (targetSdk 36) the soft keyboard is not auto-avoided.
+        // Pad the scroll content by the IME inset so the focused tag-rule field can
+        // scroll above the keyboard. clipToPadding=false keeps the last row visible.
+        (root as? androidx.core.widget.NestedScrollView)?.let { sv ->
+            sv.clipToPadding = false
+            val basePad = sv.paddingBottom
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(sv) { v, insets ->
+                val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
+                val nav = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom
+                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, basePad + maxOf(ime, nav))
+                insets
+            }
+        }
+
         edtNoteFile?.setText(prefs.getString("noteFile", "pebble.md"))
         // Auto-save the voice-note target file when the field loses focus.
         edtNoteFile?.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) persistNoteFile() }

@@ -121,6 +121,31 @@ class BackgroundReceiver : BroadcastReceiver() {
                         }
                         lerObsidianEEnviar(context)
                     }
+                    "CANCEL" -> {
+                        // Mark the task cancelled ("- [x] ~~text~~") instead of done.
+                        val taskText = data.getString(93)
+                            ?: run { sendLog(context, "CANCEL: missing text"); return@execute }
+                        cancelarTarefaPorTexto(context, taskText)
+                        lerObsidianEEnviar(context)
+                    }
+                    "SETDUE" -> {
+                        // Stamp an Obsidian due date (📅) resolved from a weekday type.
+                        val taskText = data.getString(93)
+                            ?: run { sendLog(context, "SETDUE: missing text"); return@execute }
+                        val type = data.getInteger(92)?.toInt()
+                            ?: run { sendLog(context, "SETDUE: missing type"); return@execute }
+                        val p = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
+                        val dueMs = resolveReminderTime(type, p.getInt("eveningHour", 20), p.getInt("morningHour", 9))
+                        val dueStr = DATE_FORMAT.format(Date(dueMs))
+                        if (addDueDateToTask(context, taskText, dueStr)) lerObsidianEEnviar(context)
+                    }
+                    "ADDTAG" -> {
+                        val taskText = data.getString(93)
+                            ?: run { sendLog(context, "ADDTAG: missing text"); return@execute }
+                        val tag = data.getString(94)
+                            ?: run { sendLog(context, "ADDTAG: missing tag"); return@execute }
+                        if (addTagToTask(context, taskText, tag)) lerObsidianEEnviar(context)
+                    }
                     "PIN_ACT" -> {
                         val code = data.getInteger(91)?.toInt()
                             ?: run { sendLog(context, "PIN_ACT: missing code"); return@execute }
@@ -236,6 +261,15 @@ class BackgroundReceiver : BroadcastReceiver() {
                 dict.addString(12 + i * 10, relativeDue(task, today))
             }
         }
+        // Available tags for the watch's "Add tag" action (key 95, tab-separated,
+        // capped at 12 to match the watch's buffer). Taken from the configured rules.
+        val tagList = parseRules(prefs.getString("rules", "") ?: "")
+            .map { it.tag.trim().removePrefix("#") }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .take(12)
+        if (tagList.isNotEmpty()) dict.addString(95, tagList.joinToString("\t"))
+
         try {
             PebbleKit.sendDataToPebble(context, PEBBLE_APP_UUID, dict)
             sendLog(context, "List sent to Pebble.")
@@ -540,6 +574,82 @@ class BackgroundReceiver : BroadcastReceiver() {
         } else {
             sendLog(context, "DONE: line not found for '${task.texto}'")
         }
+    }
+
+    // --- CANCEL: mark a task cancelled (keep it in the vault, drop it from the watch) ---
+
+    private fun cancelarTarefaPorTexto(context: Context, taskText: String) {
+        val needle = taskText.removeSuffix("…")
+        val task = gerarListaOrdenada(context).firstOrNull {
+            if (it.isHeader) return@firstOrNull false
+            val clean = cleanTitle(it.texto)
+            clean == taskText || (taskText.endsWith("…") && clean.startsWith(needle)) ||
+                it.texto == taskText
+        } ?: run { sendLog(context, "CANCEL: task not found: '$taskText'"); return }
+
+        val fileUri = Uri.parse(task.caminhoFicheiro)
+        val content = context.contentResolver.openInputStream(fileUri)
+            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: run {
+            sendLog(context, "CANCEL: cannot read file for '${task.texto}'"); return
+        }
+        var found = false
+        val modified = content.lines().joinToString("\n") { line ->
+            if (!found && isOpenTaskLine(line, task.texto)) {
+                found = true
+                // "- [ ] text" -> "- [x] ~~text~~": a checked box + strikethrough,
+                // both standard markdown, so it reads as cancelled in any editor.
+                val marked = line.replace("- [ ]", "- [x]")
+                val at = marked.indexOf("- [x]")
+                val head = marked.substring(0, at + 5)
+                val body = marked.substring(at + 5).trim()
+                if (body.isEmpty()) marked else "$head ~~$body~~"
+            } else line
+        }
+        if (found) {
+            context.contentResolver.openOutputStream(fileUri, "wt")
+                ?.bufferedWriter(Charsets.UTF_8)?.use { it.write(modified) }
+            TaskCache.invalidate(fileUri)
+            sendLog(context, "Cancelled: '${task.texto}'")
+        } else {
+            sendLog(context, "CANCEL: line not found for '${task.texto}'")
+        }
+    }
+
+    // --- ADDTAG: append "#tag" to a task line (deduped) ---
+
+    private fun addTagToTask(context: Context, cleanText: String, tagRaw: String): Boolean {
+        val tag = "#" + tagRaw.trim().removePrefix("#")
+        if (tag.length <= 1) return false
+        val needle = cleanText.removeSuffix("…")
+        val task = gerarListaOrdenada(context).firstOrNull {
+            if (it.isHeader) return@firstOrNull false
+            val clean = cleanTitle(it.texto)
+            clean == cleanText || (cleanText.endsWith("…") && clean.startsWith(needle)) ||
+                it.texto == cleanText
+        } ?: run { sendLog(context, "ADDTAG: task not found: '$cleanText'"); return false }
+
+        val fileUri = Uri.parse(task.caminhoFicheiro)
+        val content = context.contentResolver.openInputStream(fileUri)
+            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: run {
+            sendLog(context, "ADDTAG: cannot read file for '${task.texto}'"); return false
+        }
+        val tagRegex = Regex("(^|\\s)" + Regex.escape(tag) + "(\\s|$)")
+        var found = false
+        val modified = content.lines().joinToString("\n") { line ->
+            if (!found && isOpenTaskLine(line, task.texto)) {
+                found = true
+                if (tagRegex.containsMatchIn(line)) line   // already tagged, leave it
+                else line.trimEnd() + " " + tag
+            } else line
+        }
+        if (found && modified != content) {
+            context.contentResolver.openOutputStream(fileUri, "wt")
+                ?.bufferedWriter(Charsets.UTF_8)?.use { it.write(modified) }
+            TaskCache.invalidate(fileUri)
+            sendLog(context, "Tag $tag added to '${task.texto}'")
+            return true
+        }
+        return false
     }
 
     // --- NOTE: append a voice-dictated note to a configurable .md file ---
