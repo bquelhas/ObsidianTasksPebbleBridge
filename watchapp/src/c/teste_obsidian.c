@@ -1237,6 +1237,12 @@ static Window    *s_remindtoo_win  = NULL;   // "Just the date / Date + reminder
 static MenuLayer *s_remindtoo_ml   = NULL;
 static Window    *s_custom_win     = NULL;   // Y/M/D picker
 static Layer     *s_custom_layer   = NULL;
+// Up/down triangles drawn as vectors — the ▲▼ Unicode glyphs are missing from the
+// Time 2 system font (they showed as tofu on real hardware).
+static GPath     *s_up_path        = NULL;
+static GPath     *s_down_path      = NULL;
+static const GPathInfo UP_ARROW_INFO   = { 3, (GPoint[]){ {0, -6}, {-7, 6}, {7, 6} } };
+static const GPathInfo DOWN_ARROW_INFO = { 3, (GPoint[]){ {0, 6}, {-7, -6}, {7, -6} } };
 
 static void show_due_menu(void);
 static void show_remind_menu(void);
@@ -1575,10 +1581,13 @@ static void custom_layer_update(Layer *layer, GContext *ctx) {
   char iso[11]; iso_from_ymd(s_pick_y, s_pick_m, s_pick_d, iso);
   GFont g18 = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   graphics_draw_text(ctx, label, g18, GRect(0, 4, b.size.w, 22), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, "▲", g18, GRect(0, 28, b.size.w, 18), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  // Vector up/down triangles (font glyphs would tofu on the Time 2).
+  graphics_context_set_fill_color(ctx, s_fg_color);
+  int cx = b.size.w / 2;
+  gpath_move_to(s_up_path,   GPoint(cx, 34)); gpath_draw_filled(ctx, s_up_path);
   graphics_draw_text(ctx, vbuf, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK),
                      GRect(0, 44, b.size.w, 42), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, "▼", g18, GRect(0, 88, b.size.w, 18), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  gpath_move_to(s_down_path, GPoint(cx, 98)); gpath_draw_filled(ctx, s_down_path);
   graphics_draw_text(ctx, iso, g18, GRect(0, b.size.h - 26, b.size.w, 22), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 static void custom_up(ClickRecognizerRef r, void *ctx)   { custom_step(+1); }
@@ -1601,12 +1610,19 @@ static void custom_click_config(void *ctx) {
 }
 static void custom_win_load(Window *w) {
   Layer *root = window_get_root_layer(w);
+  s_up_path   = gpath_create(&UP_ARROW_INFO);
+  s_down_path = gpath_create(&DOWN_ARROW_INFO);
   s_custom_layer = layer_create(layer_get_bounds(root));
   layer_set_update_proc(s_custom_layer, custom_layer_update);
   layer_add_child(root, s_custom_layer);
   window_set_click_config_provider(w, custom_click_config);
 }
-static void custom_win_unload(Window *w) { layer_destroy(s_custom_layer); s_custom_layer = NULL; window_destroy(w); s_custom_win = NULL; }
+static void custom_win_unload(Window *w) {
+  layer_destroy(s_custom_layer); s_custom_layer = NULL;
+  gpath_destroy(s_up_path);   s_up_path = NULL;
+  gpath_destroy(s_down_path); s_down_path = NULL;
+  window_destroy(w); s_custom_win = NULL;
+}
 static void show_custom_picker(void) {
   time_t now = time(NULL);
   struct tm *lt = localtime(&now);
