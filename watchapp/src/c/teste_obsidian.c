@@ -220,13 +220,13 @@ static void setup_strings() {
 
   s_action_options[0] = pt ? "Concluir"         : "Done";
   s_action_options[1] = pt ? "Cancelar"         : "Cancel";
-  s_action_options[2] = pt ? "Data limite..."   : "Set due date...";
-  s_action_options[3] = pt ? "Adicionar tag..." : "Add tag...";
-  s_action_options[4] = pt ? "Lembrar 1h"       : "Remind 1h";
-  s_action_options[5] = pt ? "Logo à noite"     : "Tonight";
-  s_action_options[6] = pt ? "Amanhã de manhã"  : "Tomorrow morning";
-  s_action_options[7] = pt ? "Próxima semana"   : "Next week";
-  s_action_options[8] = pt ? "Lembrar num dia..." : "Remind on day...";
+  s_action_options[2] = pt ? "Adicionar tag..." : "Add tag...";
+  s_action_options[3] = pt ? "Lembrar 1h"       : "Remind 1h";
+  s_action_options[4] = pt ? "Logo à noite"     : "Tonight";
+  s_action_options[5] = pt ? "Amanhã de manhã"  : "Tomorrow morning";
+  s_action_options[6] = pt ? "Próxima semana"   : "Next week";
+  s_action_options[7] = pt ? "Lembrar num dia..." : "Remind on day...";
+  s_action_options[8] = pt ? "Data limite..."   : "Set due date...";
   STR_NO_TAGS         = pt ? "Sem tags"         : "No tags";
 
   // Weekday submenu — next occurrence of each day at 09:00 (Mon..Sun).
@@ -1215,17 +1215,22 @@ static const char *leco_upper(const char *src) {
 static uint16_t action_menu_get_num_sections(MenuLayer *ml, void *data) { return 1; }
 static uint16_t action_menu_get_num_rows(MenuLayer *ml, uint16_t section, void *data) { return 9; }
 
+// The action-menu header shows the task title in Gothic 18 Bold (plain, mixed
+// case) — deliberately NOT the big LECO group-title font, which was so tall the
+// nine action rows didn't fit. Compact + capped so the options stay on screen.
+#define ACTION_HEADER_FONT FONT_KEY_GOTHIC_18_BOLD
+
 static int16_t action_menu_get_header_height(MenuLayer *ml, uint16_t section, void *data) {
   if (s_action_task_index < s_item_count) {
     GSize size = graphics_text_layout_get_content_size(
-      leco_upper(s_items[s_action_task_index].text),
-      leco_font(),
+      s_items[s_action_task_index].text,
+      fonts_get_system_font(ACTION_HEADER_FONT),
       GRect(0, 0, 132, 1000),
       GTextOverflowModeWordWrap, GTextAlignmentLeft);
-    int h = size.h + 14;
-    return (int16_t)((h < 36) ? 36 : (h > 80 ? 80 : h));
+    int h = size.h + 10;
+    return (int16_t)((h < 28) ? 28 : (h > 52 ? 52 : h));
   }
-  return 36;
+  return 28;
 }
 
 static void action_menu_draw_header(GContext *ctx, const Layer *cell_layer, uint16_t section, void *data) {
@@ -1235,17 +1240,17 @@ static void action_menu_draw_header(GContext *ctx, const Layer *cell_layer, uint
   graphics_context_set_fill_color(ctx, s_bg_color);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
   graphics_context_set_text_color(ctx, s_fg_color);
-  const char *task_text = leco_upper((s_action_task_index < s_item_count) ? s_items[s_action_task_index].text : "");
+  const char *task_text = (s_action_task_index < s_item_count) ? s_items[s_action_task_index].text : "";
 #if defined(PBL_ROUND)
   graphics_draw_text(ctx, task_text,
-    leco_font(),
-    GRect(ROUND_MARGIN, 4, bounds.size.w - 2 * ROUND_MARGIN, bounds.size.h - 6),
-    GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+    fonts_get_system_font(ACTION_HEADER_FONT),
+    GRect(ROUND_MARGIN, 3, bounds.size.w - 2 * ROUND_MARGIN, bounds.size.h - 5),
+    GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 #else
   graphics_draw_text(ctx, task_text,
-    leco_font(),
-    GRect(6, 4, bounds.size.w - 8, bounds.size.h - 6),
-    GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+    fonts_get_system_font(ACTION_HEADER_FONT),
+    GRect(6, 3, bounds.size.w - 8, bounds.size.h - 5),
+    GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 #endif
   graphics_context_set_stroke_color(ctx, s_fg_color);
   graphics_draw_line(ctx, GPoint(0, bounds.size.h - 1), GPoint(bounds.size.w, bounds.size.h - 1));
@@ -1285,21 +1290,21 @@ static void action_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data)
   }
   switch (cell_index->row) {
     case 2:
-      // Set due date — pick a weekday (due-date mode), then Android stamps 📅.
-      s_day_mode = 1;
-      window_stack_push(s_day_window, true);
-      return;
-    case 3:
       // Add tag — open the tag submenu (populated from the last sync).
       window_stack_push(s_tag_window, true);
       return;
-    case 4: schedule_reminder(REMIND_TYPE_1H,      s_action_task_index); break;
-    case 5: schedule_reminder(REMIND_TYPE_TONIGHT, s_action_task_index); break;
-    case 6: schedule_reminder(REMIND_TYPE_MORNING, s_action_task_index); break;
-    case 7: schedule_reminder(REMIND_TYPE_WEEK,    s_action_task_index); break;
-    case 8:
+    case 3: schedule_reminder(REMIND_TYPE_1H,      s_action_task_index); break;
+    case 4: schedule_reminder(REMIND_TYPE_TONIGHT, s_action_task_index); break;
+    case 5: schedule_reminder(REMIND_TYPE_MORNING, s_action_task_index); break;
+    case 6: schedule_reminder(REMIND_TYPE_WEEK,    s_action_task_index); break;
+    case 7:
       // Remind on a weekday — reminder mode; feedback fires after the day is picked.
       s_day_mode = 0;
+      window_stack_push(s_day_window, true);
+      return;
+    case 8:
+      // Set due date — pick a weekday (due-date mode), then Android stamps 📅.
+      s_day_mode = 1;
       window_stack_push(s_day_window, true);
       return;
   }

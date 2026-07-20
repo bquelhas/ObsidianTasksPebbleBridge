@@ -319,10 +319,18 @@ class MainActivity : AppCompatActivity() {
         // Edge-to-edge: the CoordinatorLayout (fitsSystemWindows) insets the top
         // for the app bar; here we pad the pager's internal RecyclerView so page
         // content clears the navigation bar (and side cutouts in landscape).
+        // Issue #2: also pad by the IME (soft keyboard) inset — with edge-to-edge
+        // the window doesn't resize on its own, so without this the keyboard covers
+        // the tag-rule fields. Padding the inner list shrinks every page above the
+        // keyboard; requestRectangleOnScreen then scrolls the focused field up.
         (viewPager.getChildAt(0) as? RecyclerView)?.let { inner ->
             ViewCompat.setOnApplyWindowInsetsListener(viewPager) { _, insets ->
                 val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                inner.setPadding(bars.left, 0, bars.right, bars.bottom)
+                val ime  = insets.getInsets(WindowInsetsCompat.Type.ime())
+                inner.setPadding(bars.left, 0, bars.right, maxOf(bars.bottom, ime.bottom))
+                if (ime.bottom > 0) currentFocus?.let { fv ->
+                    fv.post { fv.requestRectangleOnScreen(android.graphics.Rect(0, 0, fv.width, fv.height), false) }
+                }
                 insets
             }
         }
@@ -407,21 +415,6 @@ class MainActivity : AppCompatActivity() {
         cardVault     = root.findViewById(R.id.cardVault)
         rvTags        = root.findViewById(R.id.rvTags)
         edtNoteFile   = root.findViewById(R.id.edtNoteFile)
-
-        // Keyboard-covers-content fix (issue #2): the page is a NestedScrollView, but
-        // with edge-to-edge (targetSdk 36) the soft keyboard is not auto-avoided.
-        // Pad the scroll content by the IME inset so the focused tag-rule field can
-        // scroll above the keyboard. clipToPadding=false keeps the last row visible.
-        (root as? androidx.core.widget.NestedScrollView)?.let { sv ->
-            sv.clipToPadding = false
-            val basePad = sv.paddingBottom
-            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(sv) { v, insets ->
-                val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
-                val nav = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()).bottom
-                v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, basePad + maxOf(ime, nav))
-                insets
-            }
-        }
 
         edtNoteFile?.setText(prefs.getString("noteFile", "pebble.md"))
         // Auto-save the voice-note target file when the field loses focus.

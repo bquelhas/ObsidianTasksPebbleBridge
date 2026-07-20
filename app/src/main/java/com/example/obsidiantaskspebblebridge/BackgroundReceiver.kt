@@ -264,8 +264,8 @@ class BackgroundReceiver : BroadcastReceiver() {
         // Available tags for the watch's "Add tag" action (key 95, tab-separated,
         // capped at 12 to match the watch's buffer). Taken from the configured rules.
         val tagList = parseRules(prefs.getString("rules", "") ?: "")
-            .map { it.tag.trim().removePrefix("#") }
-            .filter { it.isNotEmpty() }
+            .map { it.tag.trim() }                 // as configured (keeps the leading #)
+            .filter { it.isNotEmpty() && it != "#" }
             .distinct()
             .take(12)
         if (tagList.isNotEmpty()) dict.addString(95, tagList.joinToString("\t"))
