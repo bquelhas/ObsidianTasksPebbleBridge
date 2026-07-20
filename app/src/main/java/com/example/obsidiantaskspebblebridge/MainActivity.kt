@@ -73,6 +73,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tagAdapter: TagRuleAdapter
     private val logBuffer = StringBuilder()
 
+    // Update check runs once per launch; the result is cached and re-applied to the
+    // freshly-bound card on later ViewPager rebinds (no repeated GitHub calls).
+    private var updateChecked = false
+    private var cachedUpdate: UpdateChecker.Result? = null
+
     // Shizuku permission result arrives asynchronously; reflect it into the pref
     // and the switch. Guarded so it's inert when the Shizuku service is absent.
     private val shizukuPermListener =
@@ -462,7 +467,8 @@ class MainActivity : AppCompatActivity() {
         updateTagsEmpty()
     }
 
-    /** Ask GitHub if a newer release of this app exists; reveal the update card if so. */
+    /** Ask GitHub if a newer release of this app exists; reveal the update card if so.
+     *  Networks at most once per launch — later rebinds reuse the cached result. */
     private fun checkForAppUpdate(root: View) {
         val cardUpdate = root.findViewById<View>(R.id.cardUpdate) ?: return
         val txtUpdateMsg = root.findViewById<TextView>(R.id.txtUpdateMsg)
@@ -472,20 +478,32 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) { "" }
         if (current.isEmpty()) return
 
+        if (updateChecked) {
+            applyUpdateResult(cardUpdate, txtUpdateMsg, btnUpdate, cachedUpdate, current)
+            return
+        }
+        updateChecked = true
         lifecycleScope.launch(Dispatchers.IO) {
             val result = UpdateChecker.checkForUpdate(current)
             withContext(Dispatchers.Main) {
-                if (result != null) {
-                    txtUpdateMsg?.text =
-                        getString(R.string.update_available_msg, result.latestVersion, current)
-                    btnUpdate?.setOnClickListener {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.releaseUrl)))
-                    }
-                    cardUpdate.visibility = View.VISIBLE
-                } else {
-                    cardUpdate.visibility = View.GONE
-                }
+                cachedUpdate = result
+                applyUpdateResult(cardUpdate, txtUpdateMsg, btnUpdate, result, current)
             }
+        }
+    }
+
+    private fun applyUpdateResult(
+        cardUpdate: View, txtUpdateMsg: TextView?, btnUpdate: MaterialButton?,
+        result: UpdateChecker.Result?, current: String
+    ) {
+        if (result != null) {
+            txtUpdateMsg?.text = getString(R.string.update_available_msg, result.latestVersion, current)
+            btnUpdate?.setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.releaseUrl)))
+            }
+            cardUpdate.visibility = View.VISIBLE
+        } else {
+            cardUpdate.visibility = View.GONE
         }
     }
 

@@ -1,7 +1,7 @@
 {
   "name": "obsidian-tasks",
   "author": "bquelhas",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "keywords": [
     "pebble-app"
   ],
@@ -37,7 +37,7 @@
       "VOICE_ON": 1001,
       "TL_TOKEN": 1002
     },
-    "versionLabel": "2.4.1",
+    "versionLabel": "2.5",
     "resources": {
       "media": [
         {

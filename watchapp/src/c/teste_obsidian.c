@@ -31,7 +31,14 @@ static GColor color_interpolate(GColor c1, GColor c2, int percent) {
   #endif
 }
 
+// aplite (original Pebble, 24KB app RAM) can't fit the full task buffers plus the
+// v2.5 due-date/reminder submenu code — cap it lower there. s_items + s_new_items
+// are 2*MAX_ITEMS*sizeof(TaskItem) of .bss, the app's biggest RAM users.
+#if defined(PBL_PLATFORM_APLITE)
+#define MAX_ITEMS      16
+#else
 #define MAX_ITEMS      30
+#endif
 #define CHAR_LIMIT     100
 #define MAX_DONE_LIST  20
 
@@ -44,6 +51,7 @@ static GColor color_interpolate(GColor c1, GColor c2, int percent) {
 #define KEY_TASK_TEXT 93
 #define KEY_TAG       94     // tag chosen on the watch for the ADDTAG action (watch->Android)
 #define KEY_TAGLIST   95     // tab-separated list of available tags (Android->watch)
+#define KEY_DATE      96     // ISO due date "YYYY-MM-DD" for SETDUE (watch->Android)
 #define KEY_BG_COLOR  1000   // config: background colour (argb8), from Clay/Android
 #define KEY_VOICE_ON  1001   // config: show the "New note" voice row (bool), from Clay
 #define KEY_TL_TOKEN  1002   // timeline token from PebbleKit JS, relayed to Android
@@ -143,6 +151,12 @@ static int  s_tag_count = 0;
 static int       s_selected_row      = 0;
 static int       s_action_task_index = 0;
 static int       s_day_mode          = 0;  // 0 = reminder weekday, 1 = due-date weekday
+
+// Due-date flow: the picked date is held here until the user answers "remind too?".
+static char      s_pending_due[11]   = "";  // "YYYY-MM-DD"
+// Custom Y/M/D picker state.
+static int       s_pick_y, s_pick_m, s_pick_d;
+static int       s_pick_field        = 0;   // 0 = year, 1 = month, 2 = day
 static AppTimer *s_reload_timer      = NULL;
 static AppTimer *s_fade_timer        = NULL;
 static int       s_fade_progress     = 0;
@@ -204,7 +218,7 @@ static const char *STR_TITLE;
 static const char *STR_LOADING;
 static const char *STR_EMPTY;
 static const char *STR_NEWNOTE;
-static const char *s_action_options[9];
+static const char *s_action_options[5];
 static const char *s_day_options[7];   // weekday submenu (Mon..Sun)
 static const char *STR_NO_TAGS;        // shown when Android sent no tags
 
@@ -221,12 +235,8 @@ static void setup_strings() {
   s_action_options[0] = pt ? "Concluir"         : "Done";
   s_action_options[1] = pt ? "Cancelar"         : "Cancel";
   s_action_options[2] = pt ? "Adicionar tag..." : "Add tag...";
-  s_action_options[3] = pt ? "Lembrar 1h"       : "Remind 1h";
-  s_action_options[4] = pt ? "Logo à noite"     : "Tonight";
-  s_action_options[5] = pt ? "Amanhã de manhã"  : "Tomorrow morning";
-  s_action_options[6] = pt ? "Próxima semana"   : "Next week";
-  s_action_options[7] = pt ? "Lembrar num dia..." : "Remind on day...";
-  s_action_options[8] = pt ? "Data limite..."   : "Set due date...";
+  s_action_options[3] = pt ? "Data limite..."   : "Due date...";
+  s_action_options[4] = pt ? "Lembrete..."      : "Remind...";
   STR_NO_TAGS         = pt ? "Sem tags"         : "No tags";
 
   // Weekday submenu — next occurrence of each day at 09:00 (Mon..Sun).
@@ -812,9 +822,10 @@ static void send_cancel_to_android(const char *task_text) {
   app_message_outbox_send();
 }
 
-// SETDUE stamps an Obsidian due date (📅) on the task. Reuses the reminder weekday
-// encoding (REMIND_TYPE_WDAY + wday); Android resolves the next occurrence's date.
-static void send_setdue_to_android(const char *task_text, int wday_type) {
+// SETDUE stamps an Obsidian due date (📅 iso_date) on the task. The watch computes
+// the actual date, so any date works (no 7-day limit). remind_flag=1 also asks
+// Android to schedule a reminder for that date.
+static void send_setdue_to_android(const char *task_text, const char *iso_date, int remind_flag) {
   DictionaryIterator *iter;
   if (app_message_outbox_begin(&iter) != APP_MSG_OK || !iter) {
     vibes_long_pulse();
@@ -823,7 +834,8 @@ static void send_setdue_to_android(const char *task_text, int wday_type) {
   }
   dict_write_cstring(iter, KEY_ACTION,    "SETDUE");
   dict_write_cstring(iter, KEY_TASK_TEXT, task_text);
-  dict_write_int(iter, KEY_DELAY, &wday_type, sizeof(int), true);
+  dict_write_cstring(iter, KEY_DATE,      iso_date);
+  dict_write_int(iter, KEY_DELAY, &remind_flag, sizeof(int), true);
   app_message_outbox_send();
 }
 
@@ -1212,8 +1224,63 @@ static const char *leco_upper(const char *src) {
 #endif
 }
 
+// ============================================================
+// DUE-DATE FLOW  (Due date / Remind submenus + custom Y/M/D picker)
+// ============================================================
+// Transient windows: created on push, destroyed on unload, so aplite RAM stays
+// free while they're not shown. Implemented after the weekday/tag submenus.
+static Window    *s_due_win        = NULL;   // Due date submenu
+static MenuLayer *s_due_ml         = NULL;
+static Window    *s_remind_win     = NULL;   // Remind submenu (presets)
+static MenuLayer *s_remind_ml      = NULL;
+static Window    *s_remindtoo_win  = NULL;   // "Just the date / Date + reminder"
+static MenuLayer *s_remindtoo_ml   = NULL;
+static Window    *s_custom_win     = NULL;   // Y/M/D picker
+static Layer     *s_custom_layer   = NULL;
+
+static void show_due_menu(void);
+static void show_remind_menu(void);
+static void show_remindtoo_menu(void);
+static void show_custom_picker(void);
+
+static void iso_from_ymd(int y, int m, int d, char *out) {
+  snprintf(out, 11, "%04d-%02d-%02d", y, m, d);
+}
+static void iso_from_epoch(time_t t, char *out) {
+  strftime(out, 11, "%Y-%m-%d", localtime(&t));
+}
+// ISO date of the next occurrence of wday (0=Sun..6=Sat); same day today -> next
+// week, matching Android's timeNextWeekday.
+static void iso_next_weekday(int wday, char *out) {
+  time_t now = time(NULL);
+  int today = localtime(&now)->tm_wday;
+  int ahead = (wday - today + 7) % 7;
+  if (ahead == 0) ahead = 7;
+  iso_from_epoch(now + (time_t)ahead * 86400, out);
+}
+// Store the picked due date, then offer the optional reminder.
+static void commit_due(const char *iso) {
+  strncpy(s_pending_due, iso, sizeof(s_pending_due) - 1);
+  s_pending_due[sizeof(s_pending_due) - 1] = '\0';
+  show_remindtoo_menu();
+}
+// Collapse the action flow back to the main list. Removing a window that isn't on
+// the stack is a safe no-op, so this works from every path.
+static void close_due_flow(void) {
+  if (s_remindtoo_win) window_stack_remove(s_remindtoo_win, false);
+  if (s_custom_win)    window_stack_remove(s_custom_win, false);
+  if (s_due_win)       window_stack_remove(s_due_win, false);
+  window_stack_remove(s_day_window, false);
+  window_stack_remove(s_action_window, false);
+}
+static void close_remind_flow(void) {
+  window_stack_remove(s_day_window, false);
+  if (s_remind_win) window_stack_remove(s_remind_win, false);
+  window_stack_remove(s_action_window, false);
+}
+
 static uint16_t action_menu_get_num_sections(MenuLayer *ml, void *data) { return 1; }
-static uint16_t action_menu_get_num_rows(MenuLayer *ml, uint16_t section, void *data) { return 9; }
+static uint16_t action_menu_get_num_rows(MenuLayer *ml, uint16_t section, void *data) { return 5; }
 
 // The action-menu header shows the task title in Gothic 18 Bold (plain, mixed
 // case) — deliberately NOT the big LECO group-title font, which was so tall the
@@ -1289,27 +1356,10 @@ static void action_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data)
     return;
   }
   switch (cell_index->row) {
-    case 2:
-      // Add tag — open the tag submenu (populated from the last sync).
-      window_stack_push(s_tag_window, true);
-      return;
-    case 3: schedule_reminder(REMIND_TYPE_1H,      s_action_task_index); break;
-    case 4: schedule_reminder(REMIND_TYPE_TONIGHT, s_action_task_index); break;
-    case 5: schedule_reminder(REMIND_TYPE_MORNING, s_action_task_index); break;
-    case 6: schedule_reminder(REMIND_TYPE_WEEK,    s_action_task_index); break;
-    case 7:
-      // Remind on a weekday — reminder mode; feedback fires after the day is picked.
-      s_day_mode = 0;
-      window_stack_push(s_day_window, true);
-      return;
-    case 8:
-      // Set due date — pick a weekday (due-date mode), then Android stamps 📅.
-      s_day_mode = 1;
-      window_stack_push(s_day_window, true);
-      return;
+    case 2: window_stack_push(s_tag_window, true); return;  // Add tag...
+    case 3: show_due_menu();    return;                     // Due date...
+    case 4: show_remind_menu(); return;                     // Remind...
   }
-  window_stack_remove(s_action_window, false);
-  show_feedback(1);     // clock animation
 }
 
 // --- Weekday submenu ("Pick a day") ---
@@ -1322,20 +1372,19 @@ static void day_menu_draw_row(GContext *ctx, const Layer *cell_layer, MenuIndex 
 
 static void day_menu_select(MenuLayer *ml, MenuIndex *cell_index, void *data) {
   // Rows 0..6 = Monday..Sunday → wday 1,2,3,4,5,6,0.
-  // Type = REMIND_TYPE_WDAY + wday; Android resolves the actual next occurrence.
   static const int row_to_wday[7] = { 1, 2, 3, 4, 5, 6, 0 };
-  int wday_type = REMIND_TYPE_WDAY + row_to_wday[cell_index->row];
+  int wday = row_to_wday[cell_index->row];
   if (s_day_mode == 1) {
-    // Due-date mode: stamp 📅 on the task instead of scheduling a reminder.
-    if (s_action_task_index >= 0 && s_action_task_index < s_item_count &&
-        strcmp(s_items[s_action_task_index].tag, "HEADER") != 0)
-      send_setdue_to_android(s_items[s_action_task_index].text, wday_type);
+    // Due-date mode: resolve the weekday to an ISO date and offer "remind too?".
+    char iso[11]; iso_next_weekday(wday, iso);
+    window_stack_remove(s_day_window, false);
+    commit_due(iso);
   } else {
-    schedule_reminder(wday_type, s_action_task_index);
+    // Reminder mode (reached from the Remind submenu).
+    schedule_reminder(REMIND_TYPE_WDAY + wday, s_action_task_index);
+    close_remind_flow();
+    show_feedback(1);   // clock animation
   }
-  window_stack_remove(s_day_window, false);
-  window_stack_remove(s_action_window, false);
-  show_feedback(1);     // clock animation
 }
 
 static void day_window_load(Window *window) {
@@ -1395,6 +1444,177 @@ static void tag_window_load(Window *window) {
 
 static void tag_window_unload(Window *window) {
   menu_layer_destroy(s_tag_menu_layer);
+}
+
+// --- Due date submenu (Today / Tomorrow / Pick a day / Custom) ---
+static uint16_t due_menu_rows(MenuLayer *ml, uint16_t s, void *d) { return 4; }
+static void due_menu_draw(GContext *ctx, const Layer *cl, MenuIndex *ci, void *d) {
+  const char *en[] = {"Today", "Tomorrow", "Pick a day...", "Custom..."};
+  const char *pt[] = {"Hoje", "Amanhã", "Escolher dia...", "Personalizado..."};
+  menu_cell_basic_draw(ctx, cl, (s_pt ? pt : en)[ci->row], NULL, NULL);
+}
+static void due_menu_select(MenuLayer *ml, MenuIndex *ci, void *d) {
+  char iso[11];
+  switch (ci->row) {
+    case 0: iso_from_epoch(time(NULL), iso);             commit_due(iso); break;   // Today
+    case 1: iso_from_epoch(time(NULL) + 86400, iso);     commit_due(iso); break;   // Tomorrow
+    case 2: s_day_mode = 1; window_stack_push(s_day_window, true);       break;   // Pick a day
+    case 3: show_custom_picker();                                        break;   // Custom
+  }
+}
+static void due_win_load(Window *w) {
+  Layer *root = window_get_root_layer(w);
+  s_due_ml = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_due_ml, NULL, (MenuLayerCallbacks){
+    .get_num_sections = action_menu_get_num_sections,
+    .get_num_rows = due_menu_rows, .draw_row = due_menu_draw, .select_click = due_menu_select });
+  menu_layer_set_normal_colors(s_due_ml, s_bg_color, s_fg_color);
+  menu_layer_set_highlight_colors(s_due_ml, s_sel_bg, s_sel_fg);
+  menu_layer_set_click_config_onto_window(s_due_ml, w);
+  layer_add_child(root, menu_layer_get_layer(s_due_ml));
+}
+static void due_win_unload(Window *w) { menu_layer_destroy(s_due_ml); s_due_ml = NULL; window_destroy(w); s_due_win = NULL; }
+static void show_due_menu(void) {
+  s_due_win = window_create();
+  window_set_window_handlers(s_due_win, (WindowHandlers){ .load = due_win_load, .unload = due_win_unload });
+  window_stack_push(s_due_win, true);
+}
+
+// --- Remind submenu (the presets, moved off the top-level menu) ---
+static uint16_t remind_menu_rows(MenuLayer *ml, uint16_t s, void *d) { return 5; }
+static void remind_menu_draw(GContext *ctx, const Layer *cl, MenuIndex *ci, void *d) {
+  const char *en[] = {"In 1h", "Tonight", "Tomorrow morning", "Next week", "On a day..."};
+  const char *pt[] = {"Daqui a 1h", "Logo à noite", "Amanhã de manhã", "Próxima semana", "Escolher dia..."};
+  menu_cell_basic_draw(ctx, cl, (s_pt ? pt : en)[ci->row], NULL, NULL);
+}
+static void remind_menu_select(MenuLayer *ml, MenuIndex *ci, void *d) {
+  switch (ci->row) {
+    case 0: schedule_reminder(REMIND_TYPE_1H,      s_action_task_index); break;
+    case 1: schedule_reminder(REMIND_TYPE_TONIGHT, s_action_task_index); break;
+    case 2: schedule_reminder(REMIND_TYPE_MORNING, s_action_task_index); break;
+    case 3: schedule_reminder(REMIND_TYPE_WEEK,    s_action_task_index); break;
+    case 4: s_day_mode = 0; window_stack_push(s_day_window, true);       return;   // On a day...
+  }
+  close_remind_flow();
+  show_feedback(1);   // clock animation
+}
+static void remind_win_load(Window *w) {
+  Layer *root = window_get_root_layer(w);
+  s_remind_ml = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_remind_ml, NULL, (MenuLayerCallbacks){
+    .get_num_sections = action_menu_get_num_sections,
+    .get_num_rows = remind_menu_rows, .draw_row = remind_menu_draw, .select_click = remind_menu_select });
+  menu_layer_set_normal_colors(s_remind_ml, s_bg_color, s_fg_color);
+  menu_layer_set_highlight_colors(s_remind_ml, s_sel_bg, s_sel_fg);
+  menu_layer_set_click_config_onto_window(s_remind_ml, w);
+  layer_add_child(root, menu_layer_get_layer(s_remind_ml));
+}
+static void remind_win_unload(Window *w) { menu_layer_destroy(s_remind_ml); s_remind_ml = NULL; window_destroy(w); s_remind_win = NULL; }
+static void show_remind_menu(void) {
+  s_remind_win = window_create();
+  window_set_window_handlers(s_remind_win, (WindowHandlers){ .load = remind_win_load, .unload = remind_win_unload });
+  window_stack_push(s_remind_win, true);
+}
+
+// --- "Remind too?" (shown after a due date is chosen) ---
+static uint16_t remindtoo_menu_rows(MenuLayer *ml, uint16_t s, void *d) { return 2; }
+static void remindtoo_menu_draw(GContext *ctx, const Layer *cl, MenuIndex *ci, void *d) {
+  const char *en[] = {"Just the date", "Date + reminder"};
+  const char *pt[] = {"Só a data", "Data + lembrete"};
+  menu_cell_basic_draw(ctx, cl, (s_pt ? pt : en)[ci->row], NULL, NULL);
+}
+static void remindtoo_menu_select(MenuLayer *ml, MenuIndex *ci, void *d) {
+  if (s_action_task_index >= 0 && s_action_task_index < s_item_count &&
+      strcmp(s_items[s_action_task_index].tag, "HEADER") != 0)
+    send_setdue_to_android(s_items[s_action_task_index].text, s_pending_due, ci->row == 1 ? 1 : 0);
+  close_due_flow();
+  show_feedback(1);   // clock animation
+}
+static void remindtoo_win_load(Window *w) {
+  Layer *root = window_get_root_layer(w);
+  s_remindtoo_ml = menu_layer_create(layer_get_bounds(root));
+  menu_layer_set_callbacks(s_remindtoo_ml, NULL, (MenuLayerCallbacks){
+    .get_num_sections = action_menu_get_num_sections,
+    .get_num_rows = remindtoo_menu_rows, .draw_row = remindtoo_menu_draw, .select_click = remindtoo_menu_select });
+  menu_layer_set_normal_colors(s_remindtoo_ml, s_bg_color, s_fg_color);
+  menu_layer_set_highlight_colors(s_remindtoo_ml, s_sel_bg, s_sel_fg);
+  menu_layer_set_click_config_onto_window(s_remindtoo_ml, w);
+  layer_add_child(root, menu_layer_get_layer(s_remindtoo_ml));
+}
+static void remindtoo_win_unload(Window *w) { menu_layer_destroy(s_remindtoo_ml); s_remindtoo_ml = NULL; window_destroy(w); s_remindtoo_win = NULL; }
+static void show_remindtoo_menu(void) {
+  s_remindtoo_win = window_create();
+  window_set_window_handlers(s_remindtoo_win, (WindowHandlers){ .load = remindtoo_win_load, .unload = remindtoo_win_unload });
+  window_stack_push(s_remindtoo_win, true);
+}
+
+// --- Custom Y/M/D picker (one field at a time, hold to repeat) ---
+static int days_in_month(int y, int m) {
+  static const int dm[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+  if (m == 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0)) return 29;
+  return dm[(m - 1 + 12) % 12];
+}
+static void custom_step(int delta) {
+  if      (s_pick_field == 0) { s_pick_y += delta; if (s_pick_y < 2020) s_pick_y = 2020; if (s_pick_y > 2099) s_pick_y = 2099; }
+  else if (s_pick_field == 1) { s_pick_m += delta; if (s_pick_m < 1) s_pick_m = 1; if (s_pick_m > 12) s_pick_m = 12; }
+  else                        { s_pick_d += delta; if (s_pick_d < 1) s_pick_d = 1; }
+  int mx = days_in_month(s_pick_y, s_pick_m);
+  if (s_pick_d > mx) s_pick_d = mx;
+  if (s_custom_layer) layer_mark_dirty(s_custom_layer);
+}
+static void custom_layer_update(Layer *layer, GContext *ctx) {
+  GRect b = layer_get_bounds(layer);
+  graphics_context_set_fill_color(ctx, s_bg_color);
+  graphics_fill_rect(ctx, b, 0, GCornerNone);
+  graphics_context_set_text_color(ctx, s_fg_color);
+  const char *label = s_pick_field == 0 ? (s_pt ? "Ano" : "Year")
+                    : s_pick_field == 1 ? (s_pt ? "Mês" : "Month")
+                    : (s_pt ? "Dia" : "Day");
+  int val = s_pick_field == 0 ? s_pick_y : s_pick_field == 1 ? s_pick_m : s_pick_d;
+  char vbuf[8]; snprintf(vbuf, sizeof vbuf, s_pick_field == 0 ? "%04d" : "%02d", val);
+  char iso[11]; iso_from_ymd(s_pick_y, s_pick_m, s_pick_d, iso);
+  GFont g18 = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  graphics_draw_text(ctx, label, g18, GRect(0, 4, b.size.w, 22), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, "▲", g18, GRect(0, 28, b.size.w, 18), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, vbuf, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK),
+                     GRect(0, 44, b.size.w, 42), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, "▼", g18, GRect(0, 88, b.size.w, 18), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, iso, g18, GRect(0, b.size.h - 26, b.size.w, 22), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+}
+static void custom_up(ClickRecognizerRef r, void *ctx)   { custom_step(+1); }
+static void custom_down(ClickRecognizerRef r, void *ctx) { custom_step(-1); }
+static void custom_select(ClickRecognizerRef r, void *ctx) {
+  if (s_pick_field < 2) { s_pick_field++; if (s_custom_layer) layer_mark_dirty(s_custom_layer); return; }
+  char iso[11]; iso_from_ymd(s_pick_y, s_pick_m, s_pick_d, iso);
+  window_stack_remove(s_custom_win, false);   // destroyed via unload
+  commit_due(iso);
+}
+static void custom_back(ClickRecognizerRef r, void *ctx) {
+  if (s_pick_field > 0) { s_pick_field--; if (s_custom_layer) layer_mark_dirty(s_custom_layer); return; }
+  window_stack_remove(s_custom_win, false);   // back to the Due date submenu
+}
+static void custom_click_config(void *ctx) {
+  window_single_repeating_click_subscribe(BUTTON_ID_UP,   120, custom_up);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 120, custom_down);
+  window_single_click_subscribe(BUTTON_ID_SELECT, custom_select);
+  window_single_click_subscribe(BUTTON_ID_BACK,   custom_back);
+}
+static void custom_win_load(Window *w) {
+  Layer *root = window_get_root_layer(w);
+  s_custom_layer = layer_create(layer_get_bounds(root));
+  layer_set_update_proc(s_custom_layer, custom_layer_update);
+  layer_add_child(root, s_custom_layer);
+  window_set_click_config_provider(w, custom_click_config);
+}
+static void custom_win_unload(Window *w) { layer_destroy(s_custom_layer); s_custom_layer = NULL; window_destroy(w); s_custom_win = NULL; }
+static void show_custom_picker(void) {
+  time_t now = time(NULL);
+  struct tm *lt = localtime(&now);
+  s_pick_y = lt->tm_year + 1900; s_pick_m = lt->tm_mon + 1; s_pick_d = lt->tm_mday;
+  s_pick_field = 0;
+  s_custom_win = window_create();
+  window_set_window_handlers(s_custom_win, (WindowHandlers){ .load = custom_win_load, .unload = custom_win_unload });
+  window_stack_push(s_custom_win, true);
 }
 
 static void action_window_load(Window *window) {

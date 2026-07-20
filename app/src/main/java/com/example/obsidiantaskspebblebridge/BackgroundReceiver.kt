@@ -129,15 +129,16 @@ class BackgroundReceiver : BroadcastReceiver() {
                         lerObsidianEEnviar(context)
                     }
                     "SETDUE" -> {
-                        // Stamp an Obsidian due date (📅) resolved from a weekday type.
+                        // Stamp an Obsidian due date (📅) from the ISO date the watch
+                        // computed; remind flag (key 92) also schedules a reminder.
                         val taskText = data.getString(93)
                             ?: run { sendLog(context, "SETDUE: missing text"); return@execute }
-                        val type = data.getInteger(92)?.toInt()
-                            ?: run { sendLog(context, "SETDUE: missing type"); return@execute }
-                        val p = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
-                        val dueMs = resolveReminderTime(type, p.getInt("eveningHour", 20), p.getInt("morningHour", 9))
-                        val dueStr = DATE_FORMAT.format(Date(dueMs))
-                        if (addDueDateToTask(context, taskText, dueStr)) lerObsidianEEnviar(context)
+                        val dueStr = data.getString(96)
+                            ?: run { sendLog(context, "SETDUE: missing date"); return@execute }
+                        val alsoRemind = (data.getInteger(92)?.toInt() ?: 0) == 1
+                        val changed = addDueDateToTask(context, taskText, dueStr)
+                        if (alsoRemind) scheduleReminderForDate(context, taskText, dueStr)
+                        if (changed || alsoRemind) lerObsidianEEnviar(context)
                     }
                     "ADDTAG" -> {
                         val taskText = data.getString(93)
@@ -365,9 +366,17 @@ class BackgroundReceiver : BroadcastReceiver() {
 
     private fun agendarNotificacao(context: Context, taskTitle: String, type: Int): Long {
         val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
-        val eveningHour = prefs.getInt("eveningHour", 20)
-        val morningHour = prefs.getInt("morningHour", 9)
-        val triggerAt = resolveReminderTime(type, eveningHour, morningHour)
+        val triggerAt = resolveReminderTime(type, prefs.getInt("eveningHour", 20), prefs.getInt("morningHour", 9))
+        scheduleAlarmAt(context, taskTitle, triggerAt)
+        val diff = (triggerAt - System.currentTimeMillis()) / 1000
+        sendLog(context, "Reminder in ${diff}s (type=$type) for '$taskTitle'")
+        return triggerAt
+    }
+
+    // Schedule the reminder alarm at an absolute time (shared by the REMIND presets
+    // and SETDUE's optional "Date + reminder").
+    private fun scheduleAlarmAt(context: Context, taskTitle: String, triggerAt: Long) {
+        val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
         // Monotonic id from a persisted counter instead of a time-based value: two
         // reminders scheduled in the same millisecond used to collide on alarmId and
         // overwrite each other in AlarmManager + ReminderStore. Kept positive and
@@ -393,9 +402,34 @@ class BackgroundReceiver : BroadcastReceiver() {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
         }
         ReminderStore.add(context, alarmId, taskTitle, triggerAt)
-        val diff = (triggerAt - System.currentTimeMillis()) / 1000
-        sendLog(context, "Reminder in ${diff}s (type=$type) for '$taskTitle'")
-        return triggerAt
+    }
+
+    // SETDUE's "Date + reminder": derive a reminder time from the due DATE.
+    // Future date -> that morning; today -> next of morning/evening still ahead,
+    // else +1h.
+    private fun scheduleReminderForDate(context: Context, taskTitle: String, isoDate: String) {
+        val parts = isoDate.split("-")
+        val y = parts.getOrNull(0)?.toIntOrNull()
+        val mo = parts.getOrNull(1)?.toIntOrNull()
+        val d = parts.getOrNull(2)?.toIntOrNull()
+        if (y == null || mo == null || d == null) { sendLog(context, "SETDUE remind: bad date '$isoDate'"); return }
+        val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
+        val morningHour = prefs.getInt("morningHour", 9)
+        val eveningHour = prefs.getInt("eveningHour", 20)
+        val now = System.currentTimeMillis()
+        fun at(hour: Int): Long = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.YEAR, y); set(java.util.Calendar.MONTH, mo - 1)
+            set(java.util.Calendar.DAY_OF_MONTH, d); set(java.util.Calendar.HOUR_OF_DAY, hour)
+            set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val triggerAt = when {
+            at(morningHour) > now -> at(morningHour)
+            at(eveningHour) > now -> at(eveningHour)
+            else -> now + 3_600_000L
+        }
+        scheduleAlarmAt(context, taskTitle, triggerAt)
+        val diff = (triggerAt - now) / 1000
+        sendLog(context, "Reminder in ${diff}s (due $isoDate) for '$taskTitle'")
     }
 
     // Find the vault task matching the (clean) reminder text and write/refresh its
