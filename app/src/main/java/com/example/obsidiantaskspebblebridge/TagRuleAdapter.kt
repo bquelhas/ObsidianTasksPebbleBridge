@@ -28,7 +28,7 @@ class TagRuleAdapter(
     val rules: MutableList<TagRule>
 ) : RecyclerView.Adapter<TagRuleAdapter.VH>() {
 
-    data class TagRule(var tag: String, var title: String)
+    data class TagRule(var tag: String, var title: String, var visible: Boolean = true)
 
     /** Invoked whenever the rules change (edit, add, delete, reorder) so the host
      *  can auto-persist them — no explicit Save button needed. */
@@ -73,6 +73,7 @@ class TagRuleAdapter(
         val edtTitle: EditText = view.findViewById(R.id.edtTitle)
         val dragHandle: ImageView = view.findViewById(R.id.dragHandle)
         val btnDelete: ImageButton = view.findViewById(R.id.btnDeleteTag)
+        val btnVisibility: ImageButton = view.findViewById(R.id.btnToggleVisibility)
 
         var tagWatcher: TextWatcher? = null
         var titleWatcher: TextWatcher? = null
@@ -132,6 +133,16 @@ class TagRuleAdapter(
             }
         }
 
+        applyVisibility(holder, rule.visible)
+
+        holder.btnVisibility.setOnClickListener {
+            val p = holder.bindingAdapterPosition
+            if (p == RecyclerView.NO_POSITION) return@setOnClickListener
+            rules[p].visible = !rules[p].visible
+            applyVisibility(holder, rules[p].visible)
+            onRulesChanged?.invoke()
+        }
+
         holder.dragHandle.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_DOWN) onStartDrag?.invoke(holder)
             false
@@ -147,8 +158,15 @@ class TagRuleAdapter(
         }
     }
 
-    /** A tag is valid only if it is non-blank and starts with '#'. Invalid tags
-     *  get a red border so the problem is obvious at a glance. */
+    private fun applyVisibility(holder: VH, visible: Boolean) {
+        holder.btnVisibility.setImageResource(
+            if (visible) R.drawable.ic_visibility else R.drawable.ic_visibility_off
+        )
+        val alpha = if (visible) 1f else 0.4f
+        holder.tilTag.alpha = alpha
+        holder.itemView.findViewById<View>(R.id.tilTitle)?.alpha = alpha
+    }
+
     private fun applyTagValidation(til: TextInputLayout, tag: String) {
         val t = tag.trim()
         val valid = t.isNotEmpty() && t.startsWith("#")

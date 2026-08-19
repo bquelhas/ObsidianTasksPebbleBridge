@@ -115,6 +115,22 @@
                 android:value="Keeps a runtime broadcast receiver alive to deliver Pebble watch actions (Android 8+ blocks implicit broadcasts to manifest receivers)." />
         </service>
 
+        <!-- Home-screen widget: tasks grouped by tag -->
+        <receiver
+            android:name=".TasksWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tasks_widget_info" />
+        </receiver>
+        <service
+            android:name=".TasksWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
     </application>
 
 </manifest>

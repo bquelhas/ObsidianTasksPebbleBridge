@@ -83,6 +83,16 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <ImageButton
+        android:id="@+id/btnToggleVisibility"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:padding="4dp"
+        android:src="@drawable/ic_visibility"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/tag_toggle_visibility"
+        app:tint="?attr/colorOnSurfaceVariant" />
+
+    <ImageButton
         android:id="@+id/btnDeleteTag"
         android:layout_width="32dp"
         android:layout_height="32dp"

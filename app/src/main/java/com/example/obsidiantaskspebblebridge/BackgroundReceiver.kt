@@ -39,6 +39,8 @@ class BackgroundReceiver : BroadcastReceiver() {
         // External "sync now" trigger (e.g. fired by Tasker after it opens Obsidian
         // so Obsidian Sync pulls the latest vault, then tells us to re-read + push).
         const val ACTION_SYNC_NOW = "com.example.obsidiantaskspebblebridge.SYNC_NOW"
+        // Typed "new task" from the widget's button (via MainActivity).
+        const val ACTION_NEW_TASK = "com.example.obsidiantaskspebblebridge.NEW_TASK"
 
         // cleanTitle() runs for every task on every sync (thousands of calls). Compile
         // these once instead of rebuilding the Regex objects on each invocation.
@@ -56,6 +58,7 @@ class BackgroundReceiver : BroadcastReceiver() {
             ACTION_NOTIF_DONE -> { handleNotifDone(context, intent); return }
             ACTION_NOTIF_SNOOZE -> { handleNotifSnooze(context, intent); return }
             ACTION_SYNC_NOW -> { handleSyncNow(context); return }
+            ACTION_NEW_TASK -> { handleNewTask(context, intent); return }
         }
         if (intent.action != "com.getpebble.action.app.RECEIVE") return
 
@@ -176,6 +179,50 @@ class BackgroundReceiver : BroadcastReceiver() {
         }
     }
 
+    /** Widget "new task" button: append a typed task, then re-read + re-send. */
+    private fun handleNewTask(context: Context, intent: Intent) {
+        val text = intent.getStringExtra("text")?.trim().orEmpty()
+        if (text.isEmpty()) return
+        val pr = goAsync()
+        ObsidianApp.io.execute {
+            try { appendVoiceNote(context, text); lerObsidianEEnviar(context) }
+            catch (e: Exception) { sendLog(context, "NEW_TASK error: ${e.message}") }
+            finally { pr.finish() }
+        }
+    }
+
+    // Cache the grouped task list as JSON for the home-screen widget, then repaint
+    // every placed widget. One card per group (header), tasks nested underneath.
+    private fun writeWidgetData(context: Context, items: List<ObsidianTask>, today: Date) {
+        val arr = org.json.JSONArray()
+        var curTasks: org.json.JSONArray? = null
+        for (it in items) {
+            if (it.isHeader) {
+                curTasks = org.json.JSONArray()
+                arr.put(org.json.JSONObject().put("h", it.texto).put("t", curTasks))
+            } else {
+                if (curTasks == null) {
+                    curTasks = org.json.JSONArray()
+                    arr.put(org.json.JSONObject().put("h", "").put("t", curTasks))
+                }
+                curTasks.put(
+                    org.json.JSONObject()
+                        .put("x", cleanTitle(it.texto))
+                        .put("u", urgencyCode(it, today))
+                        .put("d", relativeDue(it, today))
+                        .put("f", it.caminhoFicheiro)
+                )
+            }
+        }
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            o.put("c", o.getJSONArray("t").length())
+        }
+        context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
+            .edit().putString("widgetData", arr.toString()).apply()
+        TasksWidgetProvider.refresh(context)
+    }
+
     /** Re-read the vault and push to the watch, off the main thread. Triggered by
      *  an external SYNC_NOW broadcast (Tasker) — see ACTION_SYNC_NOW. */
     private fun handleSyncNow(context: Context) {
@@ -265,7 +312,8 @@ class BackgroundReceiver : BroadcastReceiver() {
         // Available tags for the watch's "Add tag" action (key 95, tab-separated,
         // capped at 12 to match the watch's buffer). Taken from the configured rules.
         val tagList = parseRules(prefs.getString("rules", "") ?: "")
-            .map { it.tag.trim() }                 // as configured (keeps the leading #)
+            .filter { !it.hidden }
+            .map { it.tag.trim() }
             .filter { it.isNotEmpty() && it != "#" }
             .distinct()
             .take(12)
@@ -297,6 +345,11 @@ class BackgroundReceiver : BroadcastReceiver() {
 
         // Mirror dated tasks onto the Pebble timeline (no-op without a stored token).
         pushTimelinePins(context, tasks)
+
+        // Refresh the home-screen widget with the full grouped list.
+        try { writeWidgetData(context, tasks, today) } catch (e: Exception) {
+            sendLog(context, "Widget refresh error: ${e.message}")
+        }
     }
 
     private fun buildPreviewString(tasks: List<ObsidianTask>, today: Date): String {
@@ -948,7 +1001,7 @@ class BackgroundReceiver : BroadcastReceiver() {
         val dueDate: Date? = null
     )
 
-    data class Rule(val tag: String, val priority: Int, val groupName: String)
+    data class Rule(val tag: String, val priority: Int, val groupName: String, val hidden: Boolean = false)
 
     // --- Due date helpers ---
 
@@ -1035,9 +1088,12 @@ class BackgroundReceiver : BroadcastReceiver() {
 
     private fun parseRules(rawText: String): List<Rule> =
         rawText.lines().mapNotNull { line ->
-            val parts = line.split(",")
+            val parts = line.split(",").map { it.trim() }
             if (parts.size >= 3) {
-                try { Rule(parts[0].trim(), parts[1].trim().toInt(), parts[2].trim()) }
+                try {
+                    val hidden = parts.lastOrNull() == "hidden"
+                    Rule(parts[0], parts[1].toInt(), parts[2], hidden)
+                }
                 catch (e: NumberFormatException) { null }
             } else null
         }
@@ -1047,7 +1103,8 @@ class BackgroundReceiver : BroadcastReceiver() {
     private fun gerarListaOrdenada(context: Context): List<ObsidianTask> {
         val prefs = context.getSharedPreferences("ObsidianConfig", Context.MODE_PRIVATE)
         val vaultUri = prefs.getString("vaultUri", null) ?: return emptyList()
-        val rules = parseRules(prefs.getString("rules", "") ?: "")
+        val allRules = parseRules(prefs.getString("rules", "") ?: "")
+        val rules = allRules.filter { !it.hidden }
         val rawTasks = mutableListOf<ObsidianTask>()
 
         traverseDir(context, vaultUri, rules, rawTasks)

@@ -28,6 +28,16 @@
     <string name="open_12h">2× a day (every 12 h)</string>
     <string name="open_24h">Once a day</string>
     <string name="auto_open_tip">Tip: exclude Obsidian and this app from battery optimization, or Android may kill them.</string>
+    <string name="widget_description">Your tasks grouped by tag, with a button to add one.</string>
+    <string name="widget_empty">No tasks — sync to fill the widget.</string>
+    <string name="widget_new_task">New task</string>
+    <string name="open_with_label">Open notes with</string>
+    <string name="open_with_obsidian">Obsidian</string>
+    <string name="open_with_chooser">Ask every time (other app)</string>
+    <string name="new_task_title">New task</string>
+    <string name="new_task_hint">Task text</string>
+    <string name="new_task_add">Add</string>
+    <string name="new_task_added">Task added</string>
 
     <string name="section_log">Activity log</string>
     <string name="log_initial">Waiting for activity…</string>
@@ -45,6 +55,7 @@
     <string name="tag_hint_tag">#TAG</string>
     <string name="tag_hint_title">Group title</string>
     <string name="tag_drag">Drag to reorder</string>
+    <string name="tag_toggle_visibility">Show or hide tag</string>
     <string name="tag_delete">Delete row</string>
     <string name="btn_add_tag">Add tag</string>
     <string name="btn_rescan_tags">Re-scan tags</string>

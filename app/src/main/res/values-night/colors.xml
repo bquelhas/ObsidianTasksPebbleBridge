@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paleta brute (widget): tokens espelhados do Theme.kt do brute (dark):
+         onSurface #F2F2F2 (BruteWhite), onSurfaceVariant #B0B0B0 (BruteGrey),
+         outline #7A7A7A (BruteDim), inverseOnSurface quase-preto. -->
+    <color name="brute_item">#222222</color>
+    <color name="brute_on_surface">#F2F2F2</color>
+    <color name="brute_on_surface_variant">#B0B0B0</color>
+    <color name="brute_outline">#7A7A7A</color>
+    <color name="brute_inverse_on_surface">#0F0F0F</color>
+</resources>

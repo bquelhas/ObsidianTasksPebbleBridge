@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Section header (ex.: "03_PARTIDO"): serif Title Case ("98_PESSOAL" -> "98_Pessoal",
+     feito no TasksWidgetService) + contagem em serif. Sem linha divisoria — separa por
+     espaco (16dp em cima / 6dp em baixo). Fundo transparente. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="6dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="6dp">
+
+    <TextView
+        android:id="@+id/card_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:layout_toStartOf="@id/card_count"
+        android:typeface="serif"
+        android:textStyle="bold"
+        android:letterSpacing="0.04"
+        android:textSize="14sp"
+        android:textColor="@color/brute_on_surface"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/card_count"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:layout_marginStart="8dp"
+        android:typeface="serif"
+        android:textSize="16sp"
+        android:textColor="@color/brute_on_surface_variant" />
+</RelativeLayout>

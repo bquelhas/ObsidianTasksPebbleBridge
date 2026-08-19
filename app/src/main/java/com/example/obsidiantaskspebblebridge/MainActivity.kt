@@ -16,6 +16,7 @@ import android.app.PendingIntent
 import android.content.res.ColorStateList
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -169,11 +170,51 @@ class MainActivity : AppCompatActivity() {
         verificarPermissoes()
         scheduleAutoSync(replace = false)
         enviarParaPebble()
+        handleWidgetIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleWidgetIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
         renderReminders()
+    }
+
+    /** The widget's "+" button opens the app asking for a new task. */
+    private fun handleWidgetIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(TasksWidgetProvider.EXTRA_NEW_TASK, false) == true) {
+            intent.removeExtra(TasksWidgetProvider.EXTRA_NEW_TASK)   // once
+            showNewTaskDialog()
+        }
+    }
+
+    private fun showNewTaskDialog() {
+        val input = com.google.android.material.textfield.TextInputEditText(this).apply {
+            hint = getString(R.string.new_task_hint)
+            setSingleLine()
+        }
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val wrap = FrameLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(input) }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.new_task_title)
+            .setView(wrap)
+            .setPositiveButton(R.string.new_task_add) { _, _ ->
+                val text = input.text?.toString()?.trim().orEmpty()
+                if (text.isNotEmpty()) {
+                    sendBroadcast(
+                        Intent(this, BackgroundReceiver::class.java)
+                            .setAction(BackgroundReceiver.ACTION_NEW_TASK)
+                            .putExtra("text", text)
+                    )
+                    Toast.makeText(this, R.string.new_task_added, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /** Render the list of pending (scheduled, not-yet-fired) reminders with cancel buttons. */
@@ -424,6 +465,7 @@ class MainActivity : AppCompatActivity() {
         edtNoteFile?.setText(prefs.getString("noteFile", "pebble.md"))
         // Auto-save the voice-note target file when the field loses focus.
         edtNoteFile?.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) persistNoteFile() }
+        setupOpenWithDropdown(root)
 
         rvTags?.let { rv ->
             rv.layoutManager = LinearLayoutManager(this)
@@ -639,6 +681,19 @@ class MainActivity : AppCompatActivity() {
         if (edtNoteFile?.text?.toString() != name) edtNoteFile?.setText(name)
     }
 
+    /** "Open notes with" — which app the watch/widget opens a note in. */
+    private fun setupOpenWithDropdown(root: View) {
+        val spinner = root.findViewById<AutoCompleteTextView>(R.id.spinnerOpenWith) ?: return
+        val keys = listOf("obsidian", "chooser")
+        val labels = listOf(getString(R.string.open_with_obsidian), getString(R.string.open_with_chooser))
+        spinner.setAdapter(ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, labels))
+        val idx = keys.indexOf(prefs.getString("openWith", "obsidian")).let { if (it < 0) 0 else it }
+        spinner.setText(labels[idx], false)
+        spinner.setOnItemClickListener { _, _, pos, _ ->
+            prefs.edit().putString("openWith", keys[pos]).apply()
+        }
+    }
+
     /** Auto-persist the sync interval and reschedule the periodic worker. */
     private fun persistInterval(idx: Int) {
         val interval = intervalMinutes.getOrElse(idx) { 15 }
@@ -670,16 +725,18 @@ class MainActivity : AppCompatActivity() {
     private fun loadTagRules(): List<TagRuleAdapter.TagRule> =
         (prefs.getString("rules", "") ?: "").lines()
             .mapNotNull { line ->
-                val parts = line.split(",")
+                val parts = line.split(",").map { it.trim() }
                 if (parts.size >= 3) {
-                    val tag = parts[0].trim()
-                    val priority = parts[1].trim().toIntOrNull() ?: return@mapNotNull null
-                    val name = parts.drop(2).joinToString(",").trim()
-                    if (tag.isEmpty()) null else Triple(tag, priority, name)
+                    val tag = parts[0]
+                    val priority = parts[1].toIntOrNull() ?: return@mapNotNull null
+                    val hidden = parts.lastOrNull() == "hidden"
+                    val nameParts = if (hidden) parts.drop(2).dropLast(1) else parts.drop(2)
+                    val name = nameParts.joinToString(",").trim()
+                    if (tag.isEmpty()) null else Triple(tag, priority, TagRuleAdapter.TagRule(tag, name, !hidden))
                 } else null
             }
             .sortedByDescending { it.second }
-            .map { TagRuleAdapter.TagRule(it.first, it.third) }
+            .map { it.third }
 
     /**
      * Serialize rows back to the watch's "tag, priority, name" format. Row order
@@ -692,7 +749,8 @@ class MainActivity : AppCompatActivity() {
         return rows.mapIndexed { index, r ->
             val priority = (n - index) + 100
             val title = r.title.trim().replace(",", " ").ifBlank { r.tag.trim() }
-            "${r.tag.trim()}, $priority, $title"
+            val vis = if (r.visible) "" else ", hidden"
+            "${r.tag.trim()}, $priority, $title$vis"
         }.joinToString("\n")
     }
 

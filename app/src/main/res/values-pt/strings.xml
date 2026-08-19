@@ -58,6 +58,16 @@
     <string name="open_12h">2× por dia (de 12 em 12 h)</string>
     <string name="open_24h">1× por dia</string>
     <string name="auto_open_tip">Dica: exclui o Obsidian e esta app da otimização de bateria, senão o Android pode matá-los.</string>
+    <string name="widget_description">As tuas tarefas agrupadas por tag, com um botão para adicionar.</string>
+    <string name="widget_empty">Sem tarefas — sincroniza para preencher o widget.</string>
+    <string name="widget_new_task">Nova tarefa</string>
+    <string name="open_with_label">Abrir notas com</string>
+    <string name="open_with_obsidian">Obsidian</string>
+    <string name="open_with_chooser">Perguntar sempre (outra app)</string>
+    <string name="new_task_title">Nova tarefa</string>
+    <string name="new_task_hint">Texto da tarefa</string>
+    <string name="new_task_add">Adicionar</string>
+    <string name="new_task_added">Tarefa adicionada</string>
     <string name="section_settings">Configurações de sincronização</string>
     <string name="hint_sync_interval">Intervalo de sincronização automática</string>
     <string name="hint_max_tasks">Máx. tarefas a enviar (5–30)</string>

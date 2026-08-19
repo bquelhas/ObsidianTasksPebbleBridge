@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Raiz da widget: transparente, sem fundo nem cantos proprios (a card do deck do
+     brute da o rounded a volta). So a lista — o titulo vive no header do card do deck. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingHorizontal="6dp"
+    android:paddingTop="4dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ListView
+            android:id="@+id/widget_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="8dp"
+            android:scrollbars="vertical"
+            android:scrollbarStyle="outsideOverlay"
+            android:scrollbarThumbVertical="@drawable/widget_scrollbar"
+            android:scrollbarSize="4dp"
+            android:fadeScrollbars="false" />
+
+        <TextView
+            android:id="@+id/widget_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/widget_empty"
+            android:fontFamily="@font/inter"
+            android:textColor="@color/brute_on_surface_variant"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/widget_fab"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="8dp"
+            android:background="@drawable/brute_fab_bg"
+            android:padding="14dp"
+            android:src="@drawable/ic_widget_pencil"
+            android:scaleType="fitCenter"
+            android:contentDescription="@string/widget_new_task" />
+
+    </FrameLayout>
+
+</LinearLayout>

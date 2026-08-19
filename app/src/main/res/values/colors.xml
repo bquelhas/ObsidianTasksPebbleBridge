@@ -54,4 +54,13 @@
     <color name="vault_light_on_error_container">#410002</color>
     <color name="vault_light_inverse_surface">#322F35</color>
     <color name="vault_light_inverse_on_surface">#F5EEFA</color>
+
+    <!-- Paleta brute (widget): monocromática, cores chapadas, sem alpha, sem accent.
+         Tokens espelhados do Theme.kt do brute (light): onSurface preto, onSurfaceVariant
+         #404040, outline #7A7A7A (BruteDim), inverseOnSurface branco. -->
+    <color name="brute_item">#FFFFFF</color>
+    <color name="brute_on_surface">#000000</color>
+    <color name="brute_on_surface_variant">#404040</color>
+    <color name="brute_outline">#7A7A7A</color>
+    <color name="brute_inverse_on_surface">#FFFFFF</color>
 </resources>

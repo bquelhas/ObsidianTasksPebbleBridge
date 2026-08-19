@@ -62,6 +62,23 @@ class PebbleBridgeService : Service() {
     }
     private var unlockRegistered = false
 
+    // Re-render trigger da widget: RemoteViews nao recarregam sozinhas ao trocar o
+    // tema do sistema, por isso apanhamos a mudanca de uiMode (claro<->escuro) e
+    // forcamos um repaint. So dispara quando o night mode muda de facto.
+    private var lastNightMode = -1
+    private val configReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != Intent.ACTION_CONFIGURATION_CHANGED) return
+            val mode = context.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK
+            if (mode != lastNightMode) {
+                lastNightMode = mode
+                TasksWidgetProvider.refresh(context)
+            }
+        }
+    }
+    private var configRegistered = false
+
     override fun onCreate() {
         super.onCreate()
 
@@ -87,6 +104,17 @@ class PebbleBridgeService : Service() {
             registerReceiver(unlockReceiver, unlockFilter)
         }
         unlockRegistered = true
+
+        lastNightMode = resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        val configFilter = IntentFilter(Intent.ACTION_CONFIGURATION_CHANGED)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(configReceiver, configFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(configReceiver, configFilter)
+        }
+        configRegistered = true
     }
 
     // START_STICKY: if the system kills us under memory pressure, recreate the
@@ -102,6 +130,10 @@ class PebbleBridgeService : Service() {
         if (unlockRegistered) {
             runCatching { unregisterReceiver(unlockReceiver) }
             unlockRegistered = false
+        }
+        if (configRegistered) {
+            runCatching { unregisterReceiver(configReceiver) }
+            configRegistered = false
         }
     }
 
